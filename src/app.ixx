@@ -6,6 +6,7 @@ module;
 export module application;
 
 import std;
+import clock;
 
 using namespace std::literals;
 
@@ -66,11 +67,16 @@ export namespace ter
 
 		auto run() -> int
 		{
+			clk.reset();
+
 			while (not quit)
 			{
 				handle_sdl_events();
+
+				clk.tick();
 			}
 
+			std::println("Elapsed Time: {}s", clk.get_elapsed<clock::s>());
 			return 0;
 		}
 
@@ -120,5 +126,7 @@ export namespace ter
 
 		bool quit = false;
 		SDL_Event sdl_event{};
+
+		ter::clock clk;
 	};
 }
