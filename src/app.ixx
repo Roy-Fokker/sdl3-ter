@@ -10,8 +10,9 @@ import clock;
 
 using namespace std::literals;
 
-namespace {
-	constexpr auto IS_DEBUG = bool{_DEBUG};
+namespace
+{
+	constexpr auto IS_DEBUG = bool{ _DEBUG };
 
 	// Deleter template, for use with SDL objects.
 	// Allows use of SDL Objects with C++'s smart pointers, using SDL's destroy function
@@ -36,7 +37,7 @@ namespace {
 			fn(gpu, arg);
 		}
 	};
-	
+
 }
 
 export namespace ter
@@ -44,7 +45,7 @@ export namespace ter
 	class application
 	{
 	public:
-		application() 
+		application()
 		{
 			auto result = SDL_Init(SDL_INIT_VIDEO);
 			assert(result and "SDL could not initialize.");
@@ -83,14 +84,14 @@ export namespace ter
 	private:
 		void make_window()
 		{
-			constexpr auto width = 800;
+			constexpr auto width  = 800;
 			constexpr auto height = 600;
-			constexpr auto title = "SDL3 Terrain"sv;
+			constexpr auto title  = "SDL3 Terrain"sv;
 
 			auto window = SDL_CreateWindow(title.data(), width, height, NULL);
 			assert(window != nullptr and "Window could not be created.");
 
-			wnd = window_ptr{window};
+			wnd = window_ptr{ window };
 		}
 
 		void make_gpu()
@@ -100,12 +101,12 @@ export namespace ter
 
 			std::println("GPU API Name: {}", SDL_GetGPUDeviceDriver(gdev));
 
-			gpu = gpu_ptr{gdev};
+			gpu = gpu_ptr{ gdev };
 		}
 
 		void handle_sdl_events()
 		{
-			while(SDL_PollEvent(&sdl_event))
+			while (SDL_PollEvent(&sdl_event))
 			{
 				switch (sdl_event.type)
 				{
@@ -120,9 +121,10 @@ export namespace ter
 				}
 			}
 		}
+
 	private:
 		window_ptr wnd = nullptr;
-		gpu_ptr gpu = nullptr;
+		gpu_ptr gpu    = nullptr;
 
 		bool quit = false;
 		SDL_Event sdl_event{};
