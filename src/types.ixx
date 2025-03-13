@@ -36,5 +36,6 @@ export namespace ter
 	using gfx_pipeline_ptr  = std::unique_ptr<SDL_GPUGraphicsPipeline, free_gfx_pipeline>;
 	using free_gfx_shader   = gpu_deleter<SDL_ReleaseGPUShader>;
 	using gfx_shader_ptr    = std::unique_ptr<SDL_GPUShader, free_gfx_shader>;
-
+	using free_gpu_buffer   = gpu_deleter<SDL_ReleaseGPUBuffer>;
+	using gpu_buffer_ptr    = std::unique_ptr<SDL_GPUBuffer, free_gpu_buffer>;
 }

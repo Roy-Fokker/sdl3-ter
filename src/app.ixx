@@ -34,6 +34,10 @@ namespace
 		} proj_view;
 
 		gfx_pipeline_ptr pipeline;
+		gpu_buffer_ptr vertex_buffer;
+		gpu_buffer_ptr index_buffer;
+		uint32_t vertex_count;
+		uint32_t index_count;
 	};
 
 	struct vertex
@@ -41,7 +45,73 @@ namespace
 		glm::vec3 pos;
 		glm::vec2 uv;
 	};
+}
 
+auto get_swapchain_texture(SDL_Window *win, SDL_GPUCommandBuffer *cmd_buf) -> SDL_GPUTexture *
+{
+	auto sc_tex = (SDL_GPUTexture *)nullptr;
+
+	auto res = SDL_WaitAndAcquireGPUSwapchainTexture(cmd_buf, win, &sc_tex, NULL, NULL);
+	assert(res == true and "Wait and acquire GPU swapchain texture failed.");
+	assert(sc_tex != nullptr and "Swapchain texture is null. Is window minimized?");
+
+	return sc_tex;
+}
+
+auto make_gpu_buffer(SDL_GPUDevice *gpu, SDL_GPUBufferUsageFlags usage, uint32_t size, std::string_view debug_name) -> gpu_buffer_ptr
+{
+	auto buffer_info = SDL_GPUBufferCreateInfo{
+		.usage = usage,
+		.size  = size,
+	};
+
+	auto buffer = SDL_CreateGPUBuffer(gpu, &buffer_info);
+	assert(buffer != nullptr and "Failed to create gpu buffer");
+
+	if (IS_DEBUG and debug_name.size() > 0)
+	{
+		SDL_SetGPUBufferName(gpu, buffer, debug_name.data());
+	}
+
+	return { buffer, { gpu } };
+}
+
+void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUBuffer *buffer, byte_span src_data)
+{
+	auto src_size = static_cast<uint32_t>(src_data.size());
+
+	auto transfer_info = SDL_GPUTransferBufferCreateInfo{
+		.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+		.size  = src_size,
+	};
+	auto transfer_buffer = SDL_CreateGPUTransferBuffer(gpu, &transfer_info);
+	assert(transfer_buffer != nullptr and "Failed to create transfer buffer.");
+
+	auto dst_data = SDL_MapGPUTransferBuffer(gpu, transfer_buffer, false);
+	std::memcpy(dst_data, src_data.data(), src_size);
+	SDL_UnmapGPUTransferBuffer(gpu, transfer_buffer);
+
+	auto copy_cmd = SDL_AcquireGPUCommandBuffer(gpu);
+	{
+		auto copy_pass = SDL_BeginGPUCopyPass(copy_cmd);
+		{
+			auto src = SDL_GPUTransferBufferLocation{
+				.transfer_buffer = transfer_buffer,
+				.offset          = 0,
+			};
+
+			auto dst = SDL_GPUBufferRegion{
+				.buffer = buffer,
+				.offset = 0,
+				.size   = src_size,
+			};
+
+			SDL_UploadToGPUBuffer(copy_pass, &src, &dst, false);
+		}
+		SDL_EndGPUCopyPass(copy_pass);
+		SDL_SubmitGPUCommandBuffer(copy_cmd);
+	}
+	SDL_ReleaseGPUTransferBuffer(gpu, transfer_buffer);
 }
 
 export namespace ter
@@ -144,6 +214,9 @@ export namespace ter
 
 			make_pipeline();
 
+			make_mesh();
+		}
+
 		void make_perspective()
 		{
 			float fovy         = glm::radians(FOV_ANGLE);
@@ -212,15 +285,55 @@ export namespace ter
 			scn.pipeline = pl.build(gpu.get());
 		}
 
-		auto get_swapchain_texture(SDL_Window *win, SDL_GPUCommandBuffer *cmd_buf) -> SDL_GPUTexture *
+		void make_mesh()
 		{
-			auto sc_tex = (SDL_GPUTexture *)nullptr;
+			auto vertices = std::vector<vertex>{};
+			auto indices  = std::vector<uint32_t>{};
 
-			auto res = SDL_WaitAndAcquireGPUSwapchainTexture(cmd_buf, win, &sc_tex, NULL, NULL);
-			assert(res == true and "Wait and acquire GPU swapchain texture failed.");
-			assert(sc_tex != nullptr and "Swapchain texture is null. Is window minimized?");
+			auto x = 0.5f, y = 0.0f, z = 0.5f;
 
-			return sc_tex;
+			namespace vw = std::views;
+			namespace rg = std::ranges;
+
+			const auto vtx_square = std::array{
+				vertex{ { -x, y, -z }, { 0.f, 1.f } },
+				vertex{ { +x, y, -z }, { 1.f, 1.f } },
+				vertex{ { +x, y, +z }, { 1.f, 0.f } },
+				vertex{ { -x, y, +z }, { 0.f, 0.f } },
+			};
+			const auto idx_square = std::array<uint32_t, 6>{
+				0, 1, 2, //
+				2, 3, 0, //
+			};
+			for (auto i : vw::iota(-5, 5))
+			{
+				for (auto j : vw::iota(-5, 5))
+				{
+					auto v_offset = glm::vec3{ i, 0, j };
+					rg::transform(vtx_square, std::back_inserter(vertices), [&](const auto &vtx) {
+						return vertex{
+							vtx.pos + v_offset,
+							vtx.uv,
+						};
+					});
+
+					auto i_offset = (i + 5) + ((j + 5) * 4);
+					rg::transform(idx_square, std::back_inserter(indices), [&](const auto &idx) {
+						return idx + i_offset;
+					});
+				}
+			}
+
+			scn.vertex_count = static_cast<uint32_t>(vertices.size());
+			scn.index_count  = static_cast<uint32_t>(indices.size());
+
+			auto vb_size      = static_cast<uint32_t>(scn.vertex_count * sizeof(vertex));
+			scn.vertex_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "Terrain Vertices");
+			upload_to_gpu(gpu.get(), scn.vertex_buffer.get(), as_byte_span(vertices));
+
+			auto ib_size     = static_cast<uint32_t>(scn.index_count * sizeof(uint32_t));
+			scn.index_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_INDEX, ib_size, "Terrain Indices");
+			upload_to_gpu(gpu.get(), scn.index_buffer.get(), as_byte_span(indices));
 		}
 
 		void draw()
