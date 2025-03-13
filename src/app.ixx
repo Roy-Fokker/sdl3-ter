@@ -157,8 +157,6 @@ export namespace ter
 			{
 				handle_sdl_events();
 
-				process_inputs();
-
 				draw();
 
 				clk.tick();
@@ -205,26 +203,16 @@ export namespace ter
 				case SDL_EVENT_KEY_DOWN:
 				case SDL_EVENT_MOUSE_MOTION:
 				case SDL_EVENT_MOUSE_WHEEL:
-					input_events[last_event_idx] = sdl_event;
-					last_event_idx++;
-					if (last_event_idx == input_events.size())
-					{
-						return;
-					}
+					process_inputs(sdl_event);
 					break;
 				}
 			}
 		}
 
-		void process_inputs()
+		void process_inputs(const SDL_Event &evt)
 		{
-			if (last_event_idx == 0)
-				return;
-
 			const auto move_speed = 0.1f;
 			const auto rot_speed  = glm::radians(1.0f);
-
-			auto inputs = std::span(input_events).first(last_event_idx);
 
 			auto handle_keyboard = [&](const SDL_KeyboardEvent &evt) {
 				auto cam_dir = glm::vec3{};
@@ -263,17 +251,14 @@ export namespace ter
 				cam.rotate(cam_rot * rot_speed);
 			};
 
-			for (auto &evt : inputs)
+			switch (evt.type)
 			{
-				switch (evt.type)
-				{
-				case SDL_EVENT_KEY_DOWN:
-					handle_keyboard(evt.key);
-					break;
-				case SDL_EVENT_MOUSE_MOTION:
-					handle_mouse(evt.motion);
-					break;
-				}
+			case SDL_EVENT_KEY_DOWN:
+				handle_keyboard(evt.key);
+				break;
+			case SDL_EVENT_MOUSE_MOTION:
+				handle_mouse(evt.motion);
+				break;
 			}
 		}
 
@@ -467,9 +452,7 @@ export namespace ter
 		gpu_ptr gpu    = nullptr;
 
 		SDL_Event sdl_event{};
-		std::array<SDL_Event, 50> input_events{};
-		uint8_t last_event_idx = 0;
-		bool quit              = false;
+		bool quit = false;
 
 		scene scn{};
 
