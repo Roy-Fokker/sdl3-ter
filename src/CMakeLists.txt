@@ -1,5 +1,8 @@
 # Main Application
 
+# include shader compiler
+include(${CMAKE_MODULE_PATH}/compile-hlsl.cmake)
+
 # name of this application/library
 set(PRJ_APP_NAME "app")
 
@@ -48,4 +51,10 @@ target_link_libraries(${PRJ_APP_NAME}
 	PRIVATE
 	SDL3::SDL3 # SDL library version 3.2
 	glm::glm   # Math Library
+)
+
+# shaders used by this application
+target_hlsl_sources(${PRJ_APP_NAME}
+	terrain.vs.hlsl : vs_6_4
+	terrain.fs.hlsl : ps_6_4
 )
