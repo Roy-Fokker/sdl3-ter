@@ -364,6 +364,22 @@ export namespace ter
 			auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, nullptr);
 			{
 				SDL_BindGPUGraphicsPipeline(render_pass, scn.pipeline.get());
+
+				auto vertex_bindings = std::array{
+					SDL_GPUBufferBinding{
+					  .buffer = scn.vertex_buffer.get(),
+					  .offset = 0,
+					},
+				};
+				SDL_BindGPUVertexBuffers(render_pass, 0, vertex_bindings.data(), static_cast<uint32_t>(vertex_bindings.size()));
+
+				auto index_binding = SDL_GPUBufferBinding{
+					.buffer = scn.index_buffer.get(),
+					.offset = 0,
+				};
+				SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+				SDL_DrawGPUIndexedPrimitives(render_pass, scn.index_count, 1, 0, 0, 0);
 			}
 			SDL_EndGPURenderPass(render_pass);
 
