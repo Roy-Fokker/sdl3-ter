@@ -50,6 +50,7 @@ target_sources(${PRJ_APP_NAME}
 	PRIVATE FILE_SET app_modules TYPE CXX_MODULES FILES
 		app.ixx
 		clock.ixx
+		io.ixx
 )
 
 # libraries used by this application
