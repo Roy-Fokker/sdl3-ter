@@ -75,6 +75,8 @@ export namespace ter
 			{
 				handle_sdl_events();
 
+				draw();
+
 				clk.tick();
 			}
 
@@ -179,6 +181,54 @@ export namespace ter
 			};
 			scn.pipeline = pl.build(gpu.get());
 		}
+
+		auto get_swapchain_texture(SDL_Window *win, SDL_GPUCommandBuffer *cmd_buf) -> SDL_GPUTexture *
+		{
+			auto sc_tex = (SDL_GPUTexture *)nullptr;
+
+			auto res = SDL_WaitAndAcquireGPUSwapchainTexture(cmd_buf, win, &sc_tex, NULL, NULL);
+			assert(res == true and "Wait and acquire GPU swapchain texture failed.");
+			assert(sc_tex != nullptr and "Swapchain texture is null. Is window minimized?");
+
+			return sc_tex;
+		}
+
+		void draw()
+		{
+			auto device = gpu.get();
+			auto window = wnd.get();
+
+			auto cmd_buf = SDL_AcquireGPUCommandBuffer(device);
+			assert(cmd_buf != nullptr and "Failed to acquire command buffer.");
+
+			auto sc_img = get_swapchain_texture(window, cmd_buf);
+
+			auto color_target = SDL_GPUColorTargetInfo{
+				.texture     = sc_img,
+				.clear_color = scn.clear_color,
+				.load_op     = SDL_GPU_LOADOP_CLEAR,
+				.store_op    = SDL_GPU_STOREOP_STORE,
+			};
+
+			// auto depth_target = SDL_GPUDepthStencilTargetInfo{
+			// 	.texture          = scn.depth_texture.get(),
+			// 	.clear_depth      = 1.0f,
+			// 	.load_op          = SDL_GPU_LOADOP_CLEAR,
+			// 	.store_op         = SDL_GPU_STOREOP_STORE,
+			// 	.stencil_load_op  = SDL_GPU_LOADOP_CLEAR,
+			// 	.stencil_store_op = SDL_GPU_STOREOP_STORE,
+			// 	.cycle            = true,
+			// 	.clear_stencil    = 0,
+			// };
+
+			auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, /*&depth_target*/ nullptr);
+			{
+			}
+			SDL_EndGPURenderPass(render_pass);
+
+			SDL_SubmitGPUCommandBuffer(cmd_buf);
+		}
+
 	private:
 		ter::clock clk{};
 
