@@ -246,6 +246,7 @@ export namespace ter
 
 			auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, nullptr);
 			{
+				SDL_BindGPUGraphicsPipeline(render_pass, scn.pipeline.get());
 			}
 			SDL_EndGPURenderPass(render_pass);
 
