@@ -51,6 +51,7 @@ target_sources(${PRJ_APP_NAME}
 		app.ixx
 		clock.ixx
 		io.ixx
+		types.ixx
 )
 
 # libraries used by this application

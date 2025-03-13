@@ -4,35 +4,27 @@ export module application;
 
 import std;
 import clock;
+import types;
 
 using namespace std::literals;
 
 namespace
 {
+	using namespace ter;
+
 	constexpr auto IS_DEBUG = bool{ _DEBUG };
 
-	// Deleter template, for use with SDL objects.
-	// Allows use of SDL Objects with C++'s smart pointers, using SDL's destroy function
-	template <auto fn>
-	struct sdl_deleter
+	struct scene
 	{
-		constexpr void operator()(auto *arg)
-		{
-			fn(arg);
-		}
-	};
-	// Define SDL types with std::unique_ptr and custom deleter;
-	using gpu_ptr    = std::unique_ptr<SDL_GPUDevice, sdl_deleter<SDL_DestroyGPUDevice>>;
-	using window_ptr = std::unique_ptr<SDL_Window, sdl_deleter<SDL_DestroyWindow>>;
+		SDL_FColor clear_color;
 
-	template <auto fn>
-	struct gpu_deleter
+		gfx_pipeline_ptr pipeline;
+	};
+
+	struct vertex
 	{
-		SDL_GPUDevice *gpu = nullptr;
-		constexpr void operator()(auto *arg)
-		{
-			fn(gpu, arg);
-		}
+		glm::vec3 pos;
+		glm::vec2 uv;
 	};
 
 }
@@ -98,7 +90,7 @@ export namespace ter
 
 		void make_gpu()
 		{
-			auto gdev = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_DXIL, IS_DEBUG, NULL);
+			auto gdev = SDL_CreateGPUDevice(SHADER_FORMAT, IS_DEBUG, NULL);
 			assert(gdev != nullptr and "GPU device could not be created.");
 
 			std::println("GPU API Name: {}", SDL_GetGPUDeviceDriver(gdev));
@@ -125,12 +117,14 @@ export namespace ter
 		}
 
 	private:
+		ter::clock clk{};
+
 		window_ptr wnd = nullptr;
 		gpu_ptr gpu    = nullptr;
 
-		bool quit = false;
 		SDL_Event sdl_event{};
+		bool quit = false;
 
-		ter::clock clk{};
+		scene scn{};
 	};
 }
