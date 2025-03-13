@@ -45,6 +45,11 @@ export namespace ter
 	class application
 	{
 	public:
+		application(const application &)                     = default; // defaulted copy c'tor
+		auto operator=(const application &) -> application & = default; // defaulted copy c'tor
+		application(application &&)                          = default; // defaulted move c'tor
+		auto operator=(application &&) -> application &      = default; // defaulted move c'tor
+
 		application()
 		{
 			auto result = SDL_Init(SDL_INIT_VIDEO);
