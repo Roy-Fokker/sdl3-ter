@@ -1,8 +1,5 @@
 module;
 
-#include <cassert>
-#include <SDL3/SDL.h>
-
 export module application;
 
 import std;
