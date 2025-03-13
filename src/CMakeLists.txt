@@ -52,6 +52,7 @@ target_sources(${PRJ_APP_NAME}
 		clock.ixx
 		io.ixx
 		types.ixx
+		pipeline.ixx
 )
 
 # libraries used by this application

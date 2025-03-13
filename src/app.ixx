@@ -4,7 +4,10 @@ export module application;
 
 import std;
 import clock;
+import io;
+
 import types;
+import pipeline;
 
 using namespace std::literals;
 
@@ -49,10 +52,14 @@ export namespace ter
 
 			result = SDL_ClaimWindowForGPUDevice(gpu.get(), wnd.get());
 			assert(result and "Could not claim window for gpu");
+
+			initialize_scene();
 		}
 
 		~application()
 		{
+			scn = {};
+
 			SDL_ReleaseWindowFromGPUDevice(gpu.get(), wnd.get());
 
 			wnd = {};
@@ -116,6 +123,62 @@ export namespace ter
 			}
 		}
 
+		void initialize_scene()
+		{
+			scn.clear_color = { 0.2f, 0.4f, 0.4f, 1.0f };
+
+			make_pipeline();
+		}
+
+		void make_pipeline()
+		{
+			auto vs_shdr = shader_builder{
+				.shader_binary        = read_file("shaders/terrain.vs_6_4.cso"),
+				.stage                = shader_stage::vertex,
+				.uniform_buffer_count = 1,
+			};
+
+			auto fs_shdr = shader_builder{
+				.shader_binary = read_file("shaders/terrain.ps_6_4.cso"),
+				.stage         = shader_stage::fragment,
+			};
+
+			using VA = SDL_GPUVertexAttribute;
+			auto va  = std::array{
+                VA{
+				   .location    = 0,
+				   .buffer_slot = 0,
+				   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+				   .offset      = 0,
+                },
+                VA{
+				   .location    = 1,
+				   .buffer_slot = 0,
+				   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+				   .offset      = sizeof(glm::vec3),
+                },
+			};
+
+			using VBD = SDL_GPUVertexBufferDescription;
+			auto vbd  = std::array{
+                VBD{
+				   .slot       = 0,
+				   .pitch      = sizeof(vertex),
+				   .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
+                },
+			};
+
+			auto pl = gfx_pipeline_builder{
+				.vertex_shader              = vs_shdr.build(gpu.get()),
+				.fragment_shader            = fs_shdr.build(gpu.get()),
+				.vertex_attributes          = va,
+				.vertex_buffer_descriptions = vbd,
+				.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
+				.enable_depth_test          = false,
+				.culling                    = cull_mode::none,
+			};
+			scn.pipeline = pl.build(gpu.get());
+		}
 	private:
 		ter::clock clk{};
 
