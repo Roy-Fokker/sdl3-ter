@@ -157,6 +157,8 @@ export namespace ter
 			{
 				handle_sdl_events();
 
+				process_inputs();
+
 				draw();
 
 				clk.tick();
@@ -174,6 +176,9 @@ export namespace ter
 			auto window = SDL_CreateWindow(title.data(), WND_WIDTH, WND_HEIGHT, NULL);
 			assert(window != nullptr and "Window could not be created.");
 
+			// enable relative mouse movement
+			SDL_SetWindowRelativeMouseMode(window, true);
+
 			wnd = window_ptr{ window };
 		}
 
@@ -189,6 +194,7 @@ export namespace ter
 
 		void handle_sdl_events()
 		{
+			last_event_idx = 0;
 			while (SDL_PollEvent(&sdl_event))
 			{
 				switch (sdl_event.type)
@@ -197,9 +203,75 @@ export namespace ter
 					quit = true;
 					return;
 				case SDL_EVENT_KEY_DOWN:
+				case SDL_EVENT_MOUSE_MOTION:
+				case SDL_EVENT_MOUSE_WHEEL:
+					input_events[last_event_idx] = sdl_event;
+					last_event_idx++;
+					if (last_event_idx == input_events.size())
+					{
+						return;
+					}
+					break;
+				}
+			}
+		}
+
+		void process_inputs()
+		{
+			if (last_event_idx == 0)
+				return;
+
+			const auto move_speed = 0.1f;
+			const auto rot_speed  = glm::radians(1.0f);
+
+			auto inputs = std::span(input_events).first(last_event_idx);
+
+			auto handle_keyboard = [&](const SDL_KeyboardEvent &evt) {
+				auto cam_dir = glm::vec3{};
+
+				switch (evt.scancode)
+				{
+				case SDL_SCANCODE_ESCAPE:
 					quit = true;
-					return;
-				default:
+					break;
+				case SDL_SCANCODE_W:
+					cam_dir.z = 1.f;
+					break;
+				case SDL_SCANCODE_S:
+					cam_dir.z = -1.f;
+					break;
+				case SDL_SCANCODE_A:
+					cam_dir.x = -1.f;
+					break;
+				case SDL_SCANCODE_D:
+					cam_dir.x = 1.f;
+					break;
+				case SDL_SCANCODE_Q:
+					cam_dir.y = -1.f;
+					break;
+				case SDL_SCANCODE_E:
+					cam_dir.y = 1.f;
+					break;
+				}
+				cam.translate(cam_dir * move_speed);
+			};
+
+			auto handle_mouse = [&](const SDL_MouseMotionEvent &evt) {
+				auto cam_rot = glm::vec3{};
+				cam_rot.y    = -evt.xrel;
+				cam_rot.x    = -evt.yrel;
+				cam.rotate(cam_rot * rot_speed);
+			};
+
+			for (auto &evt : inputs)
+			{
+				switch (evt.type)
+				{
+				case SDL_EVENT_KEY_DOWN:
+					handle_keyboard(evt.key);
+					break;
+				case SDL_EVENT_MOUSE_MOTION:
+					handle_mouse(evt.motion);
 					break;
 				}
 			}
@@ -342,6 +414,8 @@ export namespace ter
 
 		void draw()
 		{
+			scn.proj_view.view = cam.get_view();
+
 			auto device = gpu.get();
 			auto window = wnd.get();
 
@@ -393,7 +467,9 @@ export namespace ter
 		gpu_ptr gpu    = nullptr;
 
 		SDL_Event sdl_event{};
-		bool quit = false;
+		std::array<SDL_Event, 50> input_events{};
+		uint8_t last_event_idx = 0;
+		bool quit              = false;
 
 		scene scn{};
 
