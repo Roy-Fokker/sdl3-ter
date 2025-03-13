@@ -3,9 +3,13 @@ module;
 export module application;
 
 import std;
+
+// not dependent on SDL
 import clock;
 import io;
+import camera;
 
+// SDL specific
 import types;
 import pipeline;
 
@@ -15,11 +19,19 @@ namespace
 {
 	using namespace ter;
 
-	constexpr auto IS_DEBUG = bool{ _DEBUG };
+	constexpr auto IS_DEBUG   = bool{ _DEBUG };
+	constexpr auto WND_WIDTH  = 1280;
+	constexpr auto WND_HEIGHT = WND_WIDTH * 9 / 16;
+	constexpr auto FOV_ANGLE  = 90.f;
 
 	struct scene
 	{
 		SDL_FColor clear_color;
+		struct uniform_data
+		{
+			glm::mat4 projection;
+			glm::mat4 view;
+		} proj_view;
 
 		gfx_pipeline_ptr pipeline;
 	};
@@ -87,11 +99,9 @@ export namespace ter
 	private:
 		void make_window()
 		{
-			constexpr auto width  = 800;
-			constexpr auto height = 600;
-			constexpr auto title  = "SDL3 Terrain"sv;
+			constexpr auto title = "SDL3 Terrain"sv;
 
-			auto window = SDL_CreateWindow(title.data(), width, height, NULL);
+			auto window = SDL_CreateWindow(title.data(), WND_WIDTH, WND_HEIGHT, NULL);
 			assert(window != nullptr and "Window could not be created.");
 
 			wnd = window_ptr{ window };
@@ -129,7 +139,27 @@ export namespace ter
 		{
 			scn.clear_color = { 0.2f, 0.4f, 0.4f, 1.0f };
 
+			make_perspective();
+			place_camera();
+
 			make_pipeline();
+
+		void make_perspective()
+		{
+			float fovy         = glm::radians(FOV_ANGLE);
+			float aspect_ratio = static_cast<float>(WND_WIDTH) / WND_HEIGHT;
+			float near_plane   = 0.1f;
+			float far_plane    = 10.f;
+
+			scn.proj_view.projection = glm::perspective(fovy, aspect_ratio, near_plane, far_plane);
+		}
+
+		void place_camera()
+		{
+			cam.lookat(glm::vec3{ 0.0f, 1.0f, -1.0f },
+			           glm::vec3{ 0.0f, 0.0f, 0.0f },
+			           glm::vec3{ 0.0f, 1.0f, 0.0f });
+			scn.proj_view.view = cam.get_view();
 		}
 
 		void make_pipeline()
@@ -201,6 +231,10 @@ export namespace ter
 			auto cmd_buf = SDL_AcquireGPUCommandBuffer(device);
 			assert(cmd_buf != nullptr and "Failed to acquire command buffer.");
 
+			// Push Uniform buffer
+			auto uniform_data = as_byte_span(scn.proj_view);
+			SDL_PushGPUVertexUniformData(cmd_buf, 0, uniform_data.data(), static_cast<uint32_t>(uniform_data.size()));
+
 			auto sc_img = get_swapchain_texture(window, cmd_buf);
 
 			auto color_target = SDL_GPUColorTargetInfo{
@@ -210,18 +244,7 @@ export namespace ter
 				.store_op    = SDL_GPU_STOREOP_STORE,
 			};
 
-			// auto depth_target = SDL_GPUDepthStencilTargetInfo{
-			// 	.texture          = scn.depth_texture.get(),
-			// 	.clear_depth      = 1.0f,
-			// 	.load_op          = SDL_GPU_LOADOP_CLEAR,
-			// 	.store_op         = SDL_GPU_STOREOP_STORE,
-			// 	.stencil_load_op  = SDL_GPU_LOADOP_CLEAR,
-			// 	.stencil_store_op = SDL_GPU_STOREOP_STORE,
-			// 	.cycle            = true,
-			// 	.clear_stencil    = 0,
-			// };
-
-			auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, /*&depth_target*/ nullptr);
+			auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, nullptr);
 			{
 			}
 			SDL_EndGPURenderPass(render_pass);
@@ -239,5 +262,7 @@ export namespace ter
 		bool quit = false;
 
 		scene scn{};
+
+		camera cam{};
 	};
 }

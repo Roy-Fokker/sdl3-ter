@@ -53,6 +53,7 @@ target_sources(${PRJ_APP_NAME}
 		io.ixx
 		types.ixx
 		pipeline.ixx
+		camera.ixx
 )
 
 # libraries used by this application
