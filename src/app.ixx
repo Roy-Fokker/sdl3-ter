@@ -222,7 +222,7 @@ export namespace ter
 			float fovy         = glm::radians(FOV_ANGLE);
 			float aspect_ratio = static_cast<float>(WND_WIDTH) / WND_HEIGHT;
 			float near_plane   = 0.1f;
-			float far_plane    = 10.f;
+			float far_plane    = 100.f;
 
 			scn.proj_view.projection = glm::perspective(fovy, aspect_ratio, near_plane, far_plane);
 		}
@@ -290,47 +290,54 @@ export namespace ter
 			auto vertices = std::vector<vertex>{};
 			auto indices  = std::vector<uint32_t>{};
 
-			auto x = 0.5f, y = 0.0f, z = 0.5f;
+			{ // Make Mesh
+				auto x = 0.5f, y = 0.0f, z = 0.5f;
 
-			namespace vw = std::views;
-			namespace rg = std::ranges;
+				namespace vw = std::views;
+				namespace rg = std::ranges;
 
-			const auto vtx_square = std::array{
-				vertex{ { -x, y, -z }, { 0.f, 1.f } },
-				vertex{ { +x, y, -z }, { 1.f, 1.f } },
-				vertex{ { +x, y, +z }, { 1.f, 0.f } },
-				vertex{ { -x, y, +z }, { 0.f, 0.f } },
-			};
-			const auto idx_square = std::array<uint32_t, 6>{
-				0, 1, 2, //
-				2, 3, 0, //
-			};
-			for (auto i : vw::iota(-5, 5))
-			{
-				for (auto j : vw::iota(-5, 5))
+				const auto vtx_square = std::array{
+					vertex{ { -x, y, -z }, { 0.f, 1.f } },
+					vertex{ { +x, y, -z }, { 1.f, 1.f } },
+					vertex{ { +x, y, +z }, { 1.f, 0.f } },
+					vertex{ { -x, y, +z }, { 0.f, 0.f } },
+				};
+				const auto idx_square = std::array<uint32_t, 6>{
+					0, 1, 2, //
+					2, 3, 0, //
+				};
+				for (auto i : vw::iota(-5, 5))
 				{
-					auto v_offset = glm::vec3{ i, 0, j };
-					rg::transform(vtx_square, std::back_inserter(vertices), [&](const auto &vtx) {
-						return vertex{
-							vtx.pos + v_offset,
-							vtx.uv,
-						};
-					});
+					for (auto j : vw::iota(-5, 5))
+					{
+						auto v_offset = glm::vec3{ i, 0, j };
+						rg::transform(vtx_square, std::back_inserter(vertices), [&](const auto &vtx) {
+							return vertex{
+								vtx.pos + v_offset,
+								vtx.uv,
+							};
+						});
 
 						auto i_offset = vertices.size() - 4;
+						rg::transform(idx_square, std::back_inserter(indices), [&](const auto &idx) {
+							return idx + i_offset;
+						});
+					}
 				}
 			}
 
-			scn.vertex_count = static_cast<uint32_t>(vertices.size());
-			scn.index_count  = static_cast<uint32_t>(indices.size());
+			{ // Create Buffer on GPU and populate
+				scn.vertex_count = static_cast<uint32_t>(vertices.size());
+				scn.index_count  = static_cast<uint32_t>(indices.size());
 
-			auto vb_size      = static_cast<uint32_t>(scn.vertex_count * sizeof(vertex));
-			scn.vertex_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "Terrain Vertices");
-			upload_to_gpu(gpu.get(), scn.vertex_buffer.get(), as_byte_span(vertices));
+				auto vb_size      = static_cast<uint32_t>(scn.vertex_count * sizeof(vertex));
+				scn.vertex_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "Terrain Vertices");
+				upload_to_gpu(gpu.get(), scn.vertex_buffer.get(), as_byte_span(vertices));
 
-			auto ib_size     = static_cast<uint32_t>(scn.index_count * sizeof(uint32_t));
-			scn.index_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_INDEX, ib_size, "Terrain Indices");
-			upload_to_gpu(gpu.get(), scn.index_buffer.get(), as_byte_span(indices));
+				auto ib_size     = static_cast<uint32_t>(scn.index_count * sizeof(uint32_t));
+				scn.index_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_INDEX, ib_size, "Terrain Indices");
+				upload_to_gpu(gpu.get(), scn.index_buffer.get(), as_byte_span(indices));
+			}
 		}
 
 		void draw()
