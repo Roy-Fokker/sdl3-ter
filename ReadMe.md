@@ -1,10 +1,13 @@
 # Terrain Rendering using SDL3 GPU
 ---
 Based on rastertek's Direct3d11 Terrain series. Roughly.
+Very roughly. This program attempts to push lot of terrain work to gpu.
 
 ## Dependencies
+Dependencies are loaded via CPM.CMake.
 - SDL3
 - GLM
+- DDS-KTX
 
 ## Toolset
 - CMake 3.31+
@@ -15,8 +18,9 @@ Based on rastertek's Direct3d11 Terrain series. Roughly.
 
 ## Progress
 [x] Initialize SDL3, create a window and get GPU device
-[ ] Create basic plane mesh, shaders and pipeline
-[ ] Load terrain image and render
+[x] Create basic plane mesh, shaders and pipeline
+[x] Load terrain image
+[ ] Use terrain image to generate heightmap
 [ ] Terrain cells
 [ ] Culling cells
 [ ] ... Finish??
