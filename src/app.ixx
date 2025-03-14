@@ -29,6 +29,8 @@ namespace
 
 	constexpr auto TER_WIDTH = 1024;
 
+	constexpr auto MAX_ANISOTROPY = float{ 16 };
+
 	struct scene
 	{
 		SDL_FColor clear_color;
@@ -45,6 +47,7 @@ namespace
 		uint32_t index_count;
 
 		gpu_texture_ptr terrain_heightmap;
+		gfx_sampler_ptr terrain_sampler;
 	};
 
 	struct vertex
@@ -53,6 +56,16 @@ namespace
 		glm::vec2 uv;
 	};
 }
+
+enum class sampler_type
+{
+	point_clamp,
+	point_wrap,
+	linear_clamp,
+	linear_wrap,
+	anisotropic_clamp,
+	anisotropic_wrap,
+};
 
 auto get_swapchain_texture(SDL_Window *win, SDL_GPUCommandBuffer *cmd_buf) -> SDL_GPUTexture *
 {
@@ -105,6 +118,88 @@ auto make_gpu_texture(SDL_GPUDevice *gpu, ter::image_t::header_t img_hdr, std::s
 	}
 
 	return { texture, { gpu } };
+}
+
+auto make_gpu_sampler(SDL_GPUDevice *gpu, sampler_type type) -> gfx_sampler_ptr
+{
+	auto sampler_info = [&]() -> SDL_GPUSamplerCreateInfo {
+		switch (type)
+		{
+		case sampler_type::point_clamp:
+			return {
+				.min_filter        = SDL_GPU_FILTER_NEAREST,
+				.mag_filter        = SDL_GPU_FILTER_NEAREST,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.max_anisotropy    = 0,
+				.enable_anisotropy = false,
+			};
+		case sampler_type::point_wrap:
+			return {
+				.min_filter        = SDL_GPU_FILTER_NEAREST,
+				.mag_filter        = SDL_GPU_FILTER_NEAREST,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.max_anisotropy    = 0,
+				.enable_anisotropy = false,
+			};
+		case sampler_type::linear_clamp:
+			return {
+				.min_filter        = SDL_GPU_FILTER_LINEAR,
+				.mag_filter        = SDL_GPU_FILTER_LINEAR,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.max_anisotropy    = 0,
+				.enable_anisotropy = false,
+			};
+		case sampler_type::linear_wrap:
+			return {
+				.min_filter        = SDL_GPU_FILTER_LINEAR,
+				.mag_filter        = SDL_GPU_FILTER_LINEAR,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.max_anisotropy    = 0,
+				.enable_anisotropy = false,
+			};
+		case sampler_type::anisotropic_clamp:
+			return {
+				.min_filter        = SDL_GPU_FILTER_LINEAR,
+				.mag_filter        = SDL_GPU_FILTER_LINEAR,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.max_anisotropy    = MAX_ANISOTROPY,
+				.enable_anisotropy = true,
+			};
+		case sampler_type::anisotropic_wrap:
+			return {
+				.min_filter        = SDL_GPU_FILTER_LINEAR,
+				.mag_filter        = SDL_GPU_FILTER_LINEAR,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.max_anisotropy    = MAX_ANISOTROPY,
+				.enable_anisotropy = true,
+			};
+		}
+
+		return {};
+	}();
+
+	auto sampler = SDL_CreateGPUSampler(gpu, &sampler_info);
+	assert(sampler != nullptr and "Failed to create sampler.");
+
+	return { sampler, { gpu } };
 }
 
 void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUBuffer *buffer, byte_span src_data)
@@ -483,6 +578,8 @@ export namespace ter
 
 			scn.terrain_heightmap = make_gpu_texture(gpu.get(), ter_height.header, "Terrain Heightmap");
 			upload_to_gpu(gpu.get(), scn.terrain_heightmap.get(), ter_height);
+
+			scn.terrain_sampler = make_gpu_sampler(gpu.get(), sampler_type::point_wrap);
 		}
 
 		void draw()

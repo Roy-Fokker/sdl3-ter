@@ -41,6 +41,8 @@ export namespace ter
 	using gpu_buffer_ptr    = std::unique_ptr<SDL_GPUBuffer, free_gpu_buffer>;
 	using free_gpu_texture  = gpu_deleter<SDL_ReleaseGPUTexture>;
 	using gpu_texture_ptr   = std::unique_ptr<SDL_GPUTexture, free_gpu_texture>;
+	using free_gpu_sampler  = gpu_deleter<SDL_ReleaseGPUSampler>;
+	using gfx_sampler_ptr   = std::unique_ptr<SDL_GPUSampler, free_gpu_sampler>;
 
 	auto to_sdl(image_format format) -> SDL_GPUTextureFormat
 	{
