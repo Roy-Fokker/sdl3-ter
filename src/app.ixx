@@ -19,10 +19,15 @@ namespace
 {
 	using namespace ter;
 
-	constexpr auto IS_DEBUG   = bool{ _DEBUG };
+	constexpr auto IS_DEBUG = bool{ _DEBUG };
+
 	constexpr auto WND_WIDTH  = 1280;
 	constexpr auto WND_HEIGHT = WND_WIDTH * 9 / 16;
-	constexpr auto FOV_ANGLE  = 90.f;
+
+	constexpr auto FOV_ANGLE = 90.f;
+	constexpr auto FAR_PLANE = 100.f;
+
+	constexpr auto TER_WIDTH = 1024;
 
 	struct scene
 	{
@@ -279,9 +284,8 @@ export namespace ter
 			float fovy         = glm::radians(FOV_ANGLE);
 			float aspect_ratio = static_cast<float>(WND_WIDTH) / WND_HEIGHT;
 			float near_plane   = 0.1f;
-			float far_plane    = 100.f;
 
-			scn.proj_view.projection = glm::perspective(fovy, aspect_ratio, near_plane, far_plane);
+			scn.proj_view.projection = glm::perspective(fovy, aspect_ratio, near_plane, FAR_PLANE);
 		}
 
 		void place_camera()
@@ -349,6 +353,7 @@ export namespace ter
 
 			{ // Make Mesh
 				auto x = 0.5f, y = 0.0f, z = 0.5f;
+				auto w_2 = TER_WIDTH / 2;
 
 				namespace vw = std::views;
 				namespace rg = std::ranges;
@@ -363,9 +368,9 @@ export namespace ter
 					0, 1, 2, //
 					2, 3, 0, //
 				};
-				for (auto i : vw::iota(-5, 5))
+				for (auto i : vw::iota(-w_2, w_2))
 				{
-					for (auto j : vw::iota(-5, 5))
+					for (auto j : vw::iota(-w_2, w_2))
 					{
 						auto v_offset = glm::vec3{ i, 0, j };
 						rg::transform(vtx_square, std::back_inserter(vertices), [&](const auto &vtx) {
