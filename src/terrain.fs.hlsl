@@ -22,8 +22,10 @@ float4 main(Input input) : SV_Target0
 	float3 remap = smoothstep(float3(0.f, 0.f, 0.f), dbcoord * thickness, input.baryWeights);
 
 	float wireframe = min(remap.x, min(remap.y, remap.z));
+	
+	float3 color = float3(input.TexCoord, 0.5f) * wireframe;
 
-	return float4(wireframe.xxx, 1.f);
+	return float4(color, 1.f);
 }
 
 
