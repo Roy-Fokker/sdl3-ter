@@ -192,7 +192,6 @@ export namespace ter
 
 		void handle_sdl_events()
 		{
-			last_event_idx = 0;
 			while (SDL_PollEvent(&sdl_event))
 			{
 				switch (sdl_event.type)
