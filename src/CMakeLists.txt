@@ -2,6 +2,7 @@
 
 # include shader compiler
 include(${CMAKE_MODULE_PATH}/compile-hlsl.cmake)
+include(${CMAKE_MODULE_PATH}/copy-assets.cmake)
 
 # name of this application/library
 set(PRJ_APP_NAME "app")
@@ -68,4 +69,9 @@ target_link_libraries(${PRJ_APP_NAME}
 target_hlsl_sources(${PRJ_APP_NAME}
 	terrain.vs.hlsl : vs_6_4
 	terrain.fs.hlsl : ps_6_4
+)
+
+# copy texture files used by this application
+target_data_assets(${PRJ_APP_NAME}
+	Mount_Fuji.dds
 )
