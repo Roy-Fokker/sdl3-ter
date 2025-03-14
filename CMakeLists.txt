@@ -23,6 +23,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(${CMAKE_MODULE_PATH}/CPM.cmake)
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.8")
 CPMAddPackage("gh:g-truc/glm#release-1-0-2")
+CPMAddPackage("gh:septag/dds-ktx#v1.1")
+if (dds-ktx_ADDED)
+	add_library(dds-ktx INTERFACE)
+	target_include_directories(dds-ktx INTERFACE ${dds-ktx_SOURCE_DIR})
+endif()
 
 # Project
 project(sdl3-ter)

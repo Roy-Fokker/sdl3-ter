@@ -61,6 +61,7 @@ target_link_libraries(${PRJ_APP_NAME}
 	PRIVATE
 	SDL3::SDL3 # SDL library version 3.2
 	glm::glm   # Math Library
+	dds-ktx    # DDS-KTX image loading library
 )
 
 # shaders used by this application
