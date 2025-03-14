@@ -67,11 +67,11 @@ target_link_libraries(${PRJ_APP_NAME}
 
 # shaders used by this application
 target_hlsl_sources(${PRJ_APP_NAME}
-	terrain.vs.hlsl : vs_6_4
-	terrain.fs.hlsl : ps_6_4
+	shaders/terrain.vs.hlsl : vs_6_4
+	shaders/terrain.fs.hlsl : ps_6_4
 )
 
 # copy texture files used by this application
 target_data_assets(${PRJ_APP_NAME}
-	Mount_Fuji.dds
+	data/Mount_Fuji.dds
 )
