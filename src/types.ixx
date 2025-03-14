@@ -3,6 +3,7 @@ module;
 export module types;
 
 import std;
+import io;
 
 export namespace ter
 {
@@ -38,4 +39,28 @@ export namespace ter
 	using gfx_shader_ptr    = std::unique_ptr<SDL_GPUShader, free_gfx_shader>;
 	using free_gpu_buffer   = gpu_deleter<SDL_ReleaseGPUBuffer>;
 	using gpu_buffer_ptr    = std::unique_ptr<SDL_GPUBuffer, free_gpu_buffer>;
+	using free_gpu_texture  = gpu_deleter<SDL_ReleaseGPUTexture>;
+	using gpu_texture_ptr   = std::unique_ptr<SDL_GPUTexture, free_gpu_texture>;
+
+	auto to_sdl(image_format format) -> SDL_GPUTextureFormat
+	{
+		switch (format)
+		{
+		case image_format::Bc1:
+			return SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM;
+		case image_format::Bc2:
+			return SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM;
+		case image_format::Bc3:
+			return SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
+		case image_format::Bc4:
+			return SDL_GPU_TEXTUREFORMAT_BC4_R_UNORM;
+		case image_format::Bc5:
+			return SDL_GPU_TEXTUREFORMAT_BC5_RG_UNORM;
+		case image_format::Bc6:
+			return SDL_GPU_TEXTUREFORMAT_BC6H_RGB_FLOAT;
+		case image_format::Bc7:
+			return SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM;
+		}
+		return SDL_GPU_TEXTUREFORMAT_INVALID;
+	}
 }

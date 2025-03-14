@@ -43,6 +43,8 @@ namespace
 		gpu_buffer_ptr index_buffer;
 		uint32_t vertex_count;
 		uint32_t index_count;
+
+		gpu_texture_ptr terrain_heightmap;
 	};
 
 	struct vertex
@@ -81,6 +83,30 @@ auto make_gpu_buffer(SDL_GPUDevice *gpu, SDL_GPUBufferUsageFlags usage, uint32_t
 	return { buffer, { gpu } };
 }
 
+auto make_gpu_texture(SDL_GPUDevice *gpu, ter::image_t::header_t img_hdr, std::string_view debug_name) -> gpu_texture_ptr
+{
+	auto texture_info = SDL_GPUTextureCreateInfo{
+		.type                 = SDL_GPU_TEXTURETYPE_2D,
+		.format               = to_sdl(img_hdr.format),
+		.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER,
+		.width                = img_hdr.width,
+		.height               = img_hdr.height,
+		.layer_count_or_depth = img_hdr.depth,
+		.num_levels           = img_hdr.mipmap_count,
+		.sample_count         = SDL_GPU_SAMPLECOUNT_1,
+	};
+
+	auto texture = SDL_CreateGPUTexture(gpu, &texture_info);
+	assert(texture != nullptr and "Failed to create gpu texture.");
+
+	if (IS_DEBUG and debug_name.size() > 0)
+	{
+		SDL_SetGPUTextureName(gpu, texture, debug_name.data());
+	}
+
+	return { texture, { gpu } };
+}
+
 void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUBuffer *buffer, byte_span src_data)
 {
 	auto src_size = static_cast<uint32_t>(src_data.size());
@@ -112,6 +138,53 @@ void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUBuffer *buffer, byte_span src_data
 			};
 
 			SDL_UploadToGPUBuffer(copy_pass, &src, &dst, false);
+		}
+		SDL_EndGPUCopyPass(copy_pass);
+		SDL_SubmitGPUCommandBuffer(copy_cmd);
+	}
+	SDL_ReleaseGPUTransferBuffer(gpu, transfer_buffer);
+}
+
+void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUTexture *texture, const image_t &img)
+{
+	auto src_size = static_cast<uint32_t>(img.data.size());
+
+	auto transfer_info = SDL_GPUTransferBufferCreateInfo{
+		.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+		.size  = src_size,
+	};
+	auto transfer_buffer = SDL_CreateGPUTransferBuffer(gpu, &transfer_info);
+	assert(transfer_buffer != nullptr and "Failed to create transfer buffer.");
+
+	auto dst_data = SDL_MapGPUTransferBuffer(gpu, transfer_buffer, false);
+	std::memcpy(dst_data, img.data.data(), src_size);
+	SDL_UnmapGPUTransferBuffer(gpu, transfer_buffer);
+
+	auto copy_cmd = SDL_AcquireGPUCommandBuffer(gpu);
+	{
+		auto copy_pass = SDL_BeginGPUCopyPass(copy_cmd);
+		{
+			auto src = SDL_GPUTextureTransferInfo{
+				.transfer_buffer = transfer_buffer,
+				.offset          = 0,
+			};
+
+			auto dst = SDL_GPUTextureRegion{
+				.texture = texture,
+			};
+
+			for (auto &&sub_image : img.sub_images)
+			{
+				src.offset = static_cast<uint32_t>(sub_image.offset);
+
+				dst.mip_level = sub_image.mipmap_index;
+				dst.layer     = sub_image.layer_index;
+				dst.w         = sub_image.width;
+				dst.h         = sub_image.height;
+				dst.d         = 1;
+
+				SDL_UploadToGPUTexture(copy_pass, &src, &dst, false);
+			}
 		}
 		SDL_EndGPUCopyPass(copy_pass);
 		SDL_SubmitGPUCommandBuffer(copy_cmd);
@@ -277,6 +350,8 @@ export namespace ter
 			make_pipeline();
 
 			make_mesh();
+
+			load_texture();
 		}
 
 		void make_perspective()
@@ -400,6 +475,14 @@ export namespace ter
 				scn.index_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_INDEX, ib_size, "Terrain Indices");
 				upload_to_gpu(gpu.get(), scn.index_buffer.get(), as_byte_span(indices));
 			}
+		}
+
+		void load_texture()
+		{
+			auto ter_height = read_ddsktx_file("data/Mount_Fuji.dds");
+
+			scn.terrain_heightmap = make_gpu_texture(gpu.get(), ter_height.header, "Terrain Heightmap");
+			upload_to_gpu(gpu.get(), scn.terrain_heightmap.get(), ter_height);
 		}
 
 		void draw()
