@@ -210,8 +210,9 @@ export namespace ter
 
 		void process_inputs(const SDL_Event &evt)
 		{
-			const auto move_speed = 0.1f;
-			const auto rot_speed  = glm::radians(1.0f);
+			auto dt               = static_cast<float>(clk.get_delta<clock::s>());
+			const auto move_speed = 5.f * dt;
+			const auto rot_speed  = glm::radians(10.0f) * dt;
 
 			auto handle_keyboard = [&](const SDL_KeyboardEvent &evt) {
 				auto cam_dir = glm::vec3{};
