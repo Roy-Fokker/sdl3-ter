@@ -377,7 +377,7 @@ export namespace ter
 
 						auto i_offset = vertices.size() - 4;
 						rg::transform(idx_square, std::back_inserter(indices), [&](const auto &idx) {
-							return idx + i_offset;
+							return static_cast<uint32_t>(idx + i_offset);
 						});
 					}
 				}
