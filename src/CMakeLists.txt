@@ -69,6 +69,7 @@ target_link_libraries(${PRJ_APP_NAME}
 target_hlsl_sources(${PRJ_APP_NAME}
 	shaders/terrain.vs.hlsl : vs_6_4
 	shaders/terrain.fs.hlsl : ps_6_4
+	shaders/terrain.cs.hlsl : cs_6_4
 )
 
 # copy texture files used by this application

@@ -179,4 +179,40 @@ export namespace ter
 			return { pipeline, { gpu } };
 		}
 	};
+
+	struct comp_pipeline_builder
+	{
+		byte_array shader_binary                 = {};
+		uint32_t sampler_count                   = 0;
+		uint32_t uniform_buffer_count            = 0;
+		uint32_t readonly_storage_uniform_count  = 0;
+		uint32_t readwrite_storage_uniform_count = 0;
+		uint32_t readonly_storage_texture_count  = 0;
+		uint32_t readwrite_storage_texture_count = 0;
+		std::array<uint32_t, 3> thread_count     = {};
+
+		auto build(SDL_GPUDevice *gpu) -> comp_pipeline_ptr
+		{
+			auto pipeline_info = SDL_GPUComputePipelineCreateInfo{
+				.code_size                      = shader_binary.size(),
+				.code                           = reinterpret_cast<const uint8_t *>(shader_binary.data()),
+				.entrypoint                     = "main",
+				.format                         = SHADER_FORMAT,
+				.num_samplers                   = sampler_count,
+				.num_readonly_storage_textures  = readonly_storage_texture_count,
+				.num_readonly_storage_buffers   = readonly_storage_uniform_count,
+				.num_readwrite_storage_textures = readwrite_storage_texture_count,
+				.num_readwrite_storage_buffers  = readwrite_storage_uniform_count,
+				.num_uniform_buffers            = uniform_buffer_count,
+				.threadcount_x                  = thread_count.at(0),
+				.threadcount_y                  = thread_count.at(1),
+				.threadcount_z                  = thread_count.at(2),
+			};
+
+			auto pipeline = SDL_CreateGPUComputePipeline(gpu, &pipeline_info);
+			assert(pipeline != nullptr and "Failed to create compute pipeline");
+
+			return { pipeline, { gpu } };
+		}
+	};
 }

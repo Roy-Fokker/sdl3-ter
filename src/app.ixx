@@ -77,7 +77,8 @@ export namespace ter
 		void initialize_scene();
 		void make_perspective();
 		void place_camera();
-		void make_pipeline();
+		void make_gfx_pipeline();
+		void make_comp_pipeline();
 		void make_mesh();
 		void load_texture();
 
@@ -93,11 +94,13 @@ export namespace ter
 				glm::mat4 view;
 			} proj_view;
 
-			gfx_pipeline_ptr pipeline;
+			gfx_pipeline_ptr gfx_pipeline;
 			gpu_buffer_ptr vertex_buffer;
 			gpu_buffer_ptr index_buffer;
 			uint32_t vertex_count;
 			uint32_t index_count;
+
+			comp_pipeline_ptr comp_pipeline;
 
 			gpu_texture_ptr terrain_heightmap;
 			gfx_sampler_ptr terrain_sampler;
@@ -473,7 +476,8 @@ void application::initialize_scene()
 	make_perspective();
 	place_camera();
 
-	make_pipeline();
+	make_gfx_pipeline();
+	make_comp_pipeline();
 
 	make_mesh();
 
@@ -497,7 +501,7 @@ void application::place_camera()
 	scn.proj_view.view = cam.get_view();
 }
 
-void application::make_pipeline()
+void application::make_gfx_pipeline()
 {
 	auto vs_shdr = shader_builder{
 		.shader_binary        = read_file("shaders/terrain.vs_6_4.cso"),
@@ -544,7 +548,19 @@ void application::make_pipeline()
 		.enable_depth_test          = false,
 		.culling                    = cull_mode::none,
 	};
-	scn.pipeline = pl.build(gpu.get());
+	scn.gfx_pipeline = pl.build(gpu.get());
+}
+
+void application::make_comp_pipeline()
+{
+	auto pl = comp_pipeline_builder{
+		.shader_binary                   = read_file("shaders/terrain.cs_6_4.cso"),
+		.sampler_count                   = 1,
+		.readwrite_storage_uniform_count = 1,
+		.thread_count                    = { 1024, 1024, 1 },
+	};
+
+	scn.comp_pipeline = pl.build(gpu.get());
 }
 
 void application::make_mesh()
@@ -638,7 +654,7 @@ void application::draw()
 
 	auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, nullptr);
 	{
-		SDL_BindGPUGraphicsPipeline(render_pass, scn.pipeline.get());
+		SDL_BindGPUGraphicsPipeline(render_pass, scn.gfx_pipeline.get());
 
 		auto vertex_bindings = std::array{
 			SDL_GPUBufferBinding{
