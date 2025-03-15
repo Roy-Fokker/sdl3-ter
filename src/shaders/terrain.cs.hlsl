@@ -25,6 +25,7 @@ void main(uint3 thread_id : SV_DispatchThreadID)
 	int pos_x_offset = vbyteoffset;
 	int pos_y_offset = vbyteoffset + 4;
 	int pos_z_offset = vbyteoffset + 8;
+	int uv_offset = vbyteoffset + 12;
 
 	float u = asfloat(vertices.Load(pos_x_offset));
 	u = (u + 512.5) / w;
@@ -34,4 +35,5 @@ void main(uint3 thread_id : SV_DispatchThreadID)
 	float4 clr = Texture.SampleLevel(Sampler, float2(u, v), 0.0f);
 
 	vertices.Store(pos_y_offset, asuint(clr.r * 50.f));
+	vertices.Store2(uv_offset, uint2(asuint(u), asuint(v)));
 }

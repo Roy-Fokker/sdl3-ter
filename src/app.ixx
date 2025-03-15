@@ -549,7 +549,7 @@ void application::make_gfx_pipeline()
 		.vertex_buffer_descriptions = vbd,
 		.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
 		.enable_depth_test          = false,
-		.culling                    = cull_mode::back_ccw,
+		.culling                    = cull_mode::front_cw,
 	};
 	scn.gfx_pipeline = pl.build(gpu.get());
 }
