@@ -10,6 +10,7 @@ export namespace ter
 {
 	enum class shader_stage : uint8_t
 	{
+		invalid,
 		vertex,
 		fragment,
 		compute,
@@ -17,8 +18,8 @@ export namespace ter
 
 	struct shader_builder
 	{
-		byte_array shader_binary;
-		shader_stage stage;
+		byte_array shader_binary       = {};
+		shader_stage stage             = shader_stage::invalid;
 		uint32_t sampler_count         = 0;
 		uint32_t uniform_buffer_count  = 0;
 		uint32_t storage_uniform_count = 0;
@@ -70,16 +71,16 @@ export namespace ter
 
 	struct gfx_pipeline_builder
 	{
-		gfx_shader_ptr vertex_shader;
-		gfx_shader_ptr fragment_shader;
+		gfx_shader_ptr vertex_shader   = nullptr;
+		gfx_shader_ptr fragment_shader = nullptr;
 
-		std::span<const SDL_GPUVertexAttribute> vertex_attributes;
-		std::span<const SDL_GPUVertexBufferDescription> vertex_buffer_descriptions;
+		std::span<const SDL_GPUVertexAttribute> vertex_attributes                  = {};
+		std::span<const SDL_GPUVertexBufferDescription> vertex_buffer_descriptions = {};
 
-		SDL_GPUTextureFormat color_format;
-		bool enable_depth_test;
+		SDL_GPUTextureFormat color_format = {};
+		bool enable_depth_test            = false;
 
-		cull_mode culling;
+		cull_mode culling = cull_mode::none;
 
 		auto build(SDL_GPUDevice *gpu) const -> gfx_pipeline_ptr
 		{
