@@ -82,6 +82,7 @@ export namespace ter
 		void make_mesh();
 		void load_texture();
 
+		void run_compute();
 		void draw();
 
 	private:
@@ -418,7 +419,7 @@ void application::handle_sdl_events()
 void application::process_inputs(const SDL_Event &evt)
 {
 	auto dt               = static_cast<float>(clk.get_delta<clock::s>());
-	const auto move_speed = 5.f * dt;
+	const auto move_speed = 50.f * dt;
 	const auto rot_speed  = glm::radians(10.0f) * dt;
 
 	auto handle_keyboard = [&](const SDL_KeyboardEvent &evt) {
@@ -482,6 +483,8 @@ void application::initialize_scene()
 	make_mesh();
 
 	load_texture();
+
+	run_compute();
 }
 
 void application::make_perspective()
@@ -495,7 +498,7 @@ void application::make_perspective()
 
 void application::place_camera()
 {
-	cam.lookat(glm::vec3{ 0.0f, 1.0f, -1.0f },
+	cam.lookat(glm::vec3{ 510.0f, 1.0f, -510.0f },
 	           glm::vec3{ 0.0f, 0.0f, 0.0f },
 	           glm::vec3{ 0.0f, 1.0f, 0.0f });
 	scn.proj_view.view = cam.get_view();
@@ -546,7 +549,7 @@ void application::make_gfx_pipeline()
 		.vertex_buffer_descriptions = vbd,
 		.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
 		.enable_depth_test          = false,
-		.culling                    = cull_mode::none,
+		.culling                    = cull_mode::back_ccw,
 	};
 	scn.gfx_pipeline = pl.build(gpu.get());
 }
@@ -557,7 +560,7 @@ void application::make_comp_pipeline()
 		.shader_binary                   = read_file("shaders/terrain.cs_6_4.cso"),
 		.sampler_count                   = 1,
 		.readwrite_storage_uniform_count = 1,
-		.thread_count                    = { 1024, 1024, 1 },
+		.thread_count                    = { 1024, 1, 1 },
 	};
 
 	scn.comp_pipeline = pl.build(gpu.get());
@@ -610,7 +613,7 @@ void application::make_mesh()
 		scn.index_count  = static_cast<uint32_t>(indices.size());
 
 		auto vb_size      = static_cast<uint32_t>(scn.vertex_count * sizeof(vertex));
-		scn.vertex_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "Terrain Vertices");
+		scn.vertex_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "Terrain Vertices");
 		upload_to_gpu(gpu.get(), scn.vertex_buffer.get(), as_byte_span(vertices));
 
 		auto ib_size     = static_cast<uint32_t>(scn.index_count * sizeof(uint32_t));
@@ -627,6 +630,30 @@ void application::load_texture()
 	upload_to_gpu(gpu.get(), scn.terrain_heightmap.get(), ter_height);
 
 	scn.terrain_sampler = make_gpu_sampler(gpu.get(), sampler_type::point_wrap);
+}
+
+void application::run_compute()
+{
+	auto cmd_buf = SDL_AcquireGPUCommandBuffer(gpu.get());
+
+	auto rw_uniform_binding = SDL_GPUStorageBufferReadWriteBinding{
+		.buffer = scn.vertex_buffer.get(),
+		.cycle  = false,
+	};
+	auto compute_pass = SDL_BeginGPUComputePass(cmd_buf, NULL, 0, &rw_uniform_binding, 1);
+	{
+		SDL_BindGPUComputePipeline(compute_pass, scn.comp_pipeline.get());
+
+		auto sampler_binding = SDL_GPUTextureSamplerBinding{
+			.texture = scn.terrain_heightmap.get(),
+			.sampler = scn.terrain_sampler.get(),
+		};
+		SDL_BindGPUComputeSamplers(compute_pass, 0, &sampler_binding, 1);
+
+		SDL_DispatchGPUCompute(compute_pass, scn.vertex_count / 1024, 1, 1);
+	}
+	SDL_EndGPUComputePass(compute_pass);
+	SDL_SubmitGPUCommandBuffer(cmd_buf);
 }
 
 void application::draw()
