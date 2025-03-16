@@ -20,7 +20,7 @@ Dependencies are loaded via CPM.CMake.
 - [x] Initialize SDL3, create a window and get GPU device
 - [x] Create basic plane mesh, shaders and pipeline
 - [x] Load terrain image
-- [ ] Use terrain image to generate heightmap
+- [x] Use terrain image to generate heightmap
 - [ ] Terrain cells
 - [ ] Culling cells
 - [ ] ... Finish??
