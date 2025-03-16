@@ -515,6 +515,7 @@ void application::make_gfx_pipeline()
 	auto fs_shdr = shader_builder{
 		.shader_binary = read_file("shaders/terrain.ps_6_4.cso"),
 		.stage         = shader_stage::fragment,
+		.sampler_count = 1,
 	};
 
 	using VA = SDL_GPUVertexAttribute;
@@ -549,7 +550,7 @@ void application::make_gfx_pipeline()
 		.vertex_buffer_descriptions = vbd,
 		.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
 		.enable_depth_test          = false,
-		.culling                    = cull_mode::front_cw,
+		.culling                    = cull_mode::back_ccw,
 	};
 	scn.gfx_pipeline = pl.build(gpu.get());
 }
@@ -696,6 +697,12 @@ void application::draw()
 			.offset = 0,
 		};
 		SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+		auto sampler_binding = SDL_GPUTextureSamplerBinding{
+			.texture = scn.terrain_heightmap.get(),
+			.sampler = scn.terrain_sampler.get(),
+		};
+		SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
 
 		SDL_DrawGPUIndexedPrimitives(render_pass, scn.index_count, 1, 0, 0, 0);
 	}

@@ -1,7 +1,7 @@
 // space2 is because of reason explained in
 // https://wiki.libsdl.org/SDL3/SDL_CreateGPUShader#remarks
-// Texture2D<float4> Texture : register(t0, space2);
-// SamplerState Sampler : register(s0, space2);
+Texture2D<float4> Texture : register(t0, space2);
+SamplerState Sampler : register(s0, space2);
 
 struct Input
 {
@@ -11,8 +11,6 @@ struct Input
 
 float4 main(Input input) : SV_Target0
 {
-	// return Texture.Sample(Sampler, input.TexCoord);
-
 	float3 dbcoordX = ddx(input.baryWeights);
 	float3 dbcoordY = ddy(input.baryWeights);
 
@@ -23,9 +21,11 @@ float4 main(Input input) : SV_Target0
 
 	float wireframe = min(remap.x, min(remap.y, remap.z));
 	
-	float3 color = float3(input.TexCoord, 0.5f) * wireframe;
+	float4 color = Texture.Sample(Sampler, input.TexCoord);
 
-	return float4(color, 1.f);
+	//color = float4(color.rgb, 1.0f) * wireframe;
+
+	return color;
 }
 
 
