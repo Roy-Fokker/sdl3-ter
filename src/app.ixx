@@ -630,7 +630,7 @@ void application::load_texture()
 	scn.terrain_heightmap = make_gpu_texture(gpu.get(), ter_height.header, "Terrain Heightmap");
 	upload_to_gpu(gpu.get(), scn.terrain_heightmap.get(), ter_height);
 
-	scn.terrain_sampler = make_gpu_sampler(gpu.get(), sampler_type::point_wrap);
+	scn.terrain_sampler = make_gpu_sampler(gpu.get(), sampler_type::anisotropic_clamp);
 }
 
 void application::run_compute()
