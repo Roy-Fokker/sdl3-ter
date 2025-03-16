@@ -572,39 +572,39 @@ void application::make_mesh()
 	auto indices  = std::vector<uint32_t>{};
 
 	{ // Make Mesh
-		auto x = 0.5f, y = 0.0f, z = 0.5f;
-		auto w_2 = TER_WIDTH / 2;
+		const auto x = 0.5f, y = 0.0f, z = 0.5f;
+		const auto w_2 = TER_WIDTH / 2;
 
 		namespace vw = std::views;
 		namespace rg = std::ranges;
 
+		const auto uv         = 1.f / TER_WIDTH;
 		const auto vtx_square = std::array{
-			vertex{ { -x, y, -z }, { 0.f, 1.f } },
-			vertex{ { +x, y, -z }, { 1.f, 1.f } },
-			vertex{ { +x, y, +z }, { 1.f, 0.f } },
-			vertex{ { -x, y, +z }, { 0.f, 0.f } },
+			vertex{ { -x, y, -z }, { 0.f, 0.f } },
+			vertex{ { +x, y, -z }, { uv, 0.f } },
+			vertex{ { +x, y, +z }, { uv, uv } },
+			vertex{ { -x, y, +z }, { 0.f, uv } },
 		};
 		const auto idx_square = std::array<uint32_t, 6>{
 			0, 1, 2, //
 			2, 3, 0, //
 		};
-		for (auto i : vw::iota(-w_2, w_2))
+		auto rng = vw::iota(-w_2, w_2);
+		for (auto [i, j] : vw::cartesian_product(rng, rng))
 		{
-			for (auto j : vw::iota(-w_2, w_2))
-			{
-				auto v_offset = glm::vec3{ i, 0, j };
-				rg::transform(vtx_square, std::back_inserter(vertices), [&](const auto &vtx) {
-					return vertex{
-						vtx.pos + v_offset,
-						vtx.uv,
-					};
-				});
+			auto v_offset  = glm::vec3{ i, 0, j };
+			auto uv_offset = glm::vec2{ uv * (i + w_2), uv * (j + w_2) };
+			rg::transform(vtx_square, std::back_inserter(vertices), [&](const auto &vtx) {
+				return vertex{
+					vtx.pos + v_offset,
+					vtx.uv + uv_offset,
+				};
+			});
 
-				auto i_offset = vertices.size() - 4;
-				rg::transform(idx_square, std::back_inserter(indices), [&](const auto &idx) {
-					return static_cast<uint32_t>(idx + i_offset);
-				});
-			}
+			auto i_offset = vertices.size() - 4;
+			rg::transform(idx_square, std::back_inserter(indices), [&](const auto &idx) {
+				return static_cast<uint32_t>(idx + i_offset);
+			});
 		}
 	}
 
