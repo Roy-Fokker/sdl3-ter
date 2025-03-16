@@ -154,6 +154,81 @@ namespace
 		anisotropic_wrap,
 	};
 
+	auto to_sdl(sampler_type type) -> SDL_GPUSamplerCreateInfo
+	{
+		switch (type)
+		{
+		case sampler_type::point_clamp:
+			return {
+				.min_filter        = SDL_GPU_FILTER_NEAREST,
+				.mag_filter        = SDL_GPU_FILTER_NEAREST,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.max_anisotropy    = 0,
+				.enable_anisotropy = false,
+			};
+		case sampler_type::point_wrap:
+			return {
+				.min_filter        = SDL_GPU_FILTER_NEAREST,
+				.mag_filter        = SDL_GPU_FILTER_NEAREST,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.max_anisotropy    = 0,
+				.enable_anisotropy = false,
+			};
+		case sampler_type::linear_clamp:
+			return {
+				.min_filter        = SDL_GPU_FILTER_LINEAR,
+				.mag_filter        = SDL_GPU_FILTER_LINEAR,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.max_anisotropy    = 0,
+				.enable_anisotropy = false,
+			};
+		case sampler_type::linear_wrap:
+			return {
+				.min_filter        = SDL_GPU_FILTER_LINEAR,
+				.mag_filter        = SDL_GPU_FILTER_LINEAR,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.max_anisotropy    = 0,
+				.enable_anisotropy = false,
+			};
+		case sampler_type::anisotropic_clamp:
+			return {
+				.min_filter        = SDL_GPU_FILTER_LINEAR,
+				.mag_filter        = SDL_GPU_FILTER_LINEAR,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
+				.max_anisotropy    = MAX_ANISOTROPY,
+				.enable_anisotropy = true,
+			};
+		case sampler_type::anisotropic_wrap:
+			return {
+				.min_filter        = SDL_GPU_FILTER_LINEAR,
+				.mag_filter        = SDL_GPU_FILTER_LINEAR,
+				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
+				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
+				.max_anisotropy    = MAX_ANISOTROPY,
+				.enable_anisotropy = true,
+			};
+		}
+
+		return {};
+	}
+
 	auto get_swapchain_texture(SDL_Window *win, SDL_GPUCommandBuffer *cmd_buf) -> SDL_GPUTexture *
 	{
 		auto sc_tex = (SDL_GPUTexture *)nullptr;
@@ -209,79 +284,7 @@ namespace
 
 	auto make_gpu_sampler(SDL_GPUDevice *gpu, sampler_type type) -> gfx_sampler_ptr
 	{
-		auto sampler_info = [&]() -> SDL_GPUSamplerCreateInfo {
-			switch (type)
-			{
-			case sampler_type::point_clamp:
-				return {
-					.min_filter        = SDL_GPU_FILTER_NEAREST,
-					.mag_filter        = SDL_GPU_FILTER_NEAREST,
-					.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
-					.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.max_anisotropy    = 0,
-					.enable_anisotropy = false,
-				};
-			case sampler_type::point_wrap:
-				return {
-					.min_filter        = SDL_GPU_FILTER_NEAREST,
-					.mag_filter        = SDL_GPU_FILTER_NEAREST,
-					.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
-					.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.max_anisotropy    = 0,
-					.enable_anisotropy = false,
-				};
-			case sampler_type::linear_clamp:
-				return {
-					.min_filter        = SDL_GPU_FILTER_LINEAR,
-					.mag_filter        = SDL_GPU_FILTER_LINEAR,
-					.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-					.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.max_anisotropy    = 0,
-					.enable_anisotropy = false,
-				};
-			case sampler_type::linear_wrap:
-				return {
-					.min_filter        = SDL_GPU_FILTER_LINEAR,
-					.mag_filter        = SDL_GPU_FILTER_LINEAR,
-					.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-					.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.max_anisotropy    = 0,
-					.enable_anisotropy = false,
-				};
-			case sampler_type::anisotropic_clamp:
-				return {
-					.min_filter        = SDL_GPU_FILTER_LINEAR,
-					.mag_filter        = SDL_GPU_FILTER_LINEAR,
-					.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-					.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-					.max_anisotropy    = MAX_ANISOTROPY,
-					.enable_anisotropy = true,
-				};
-			case sampler_type::anisotropic_wrap:
-				return {
-					.min_filter        = SDL_GPU_FILTER_LINEAR,
-					.mag_filter        = SDL_GPU_FILTER_LINEAR,
-					.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-					.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-					.max_anisotropy    = MAX_ANISOTROPY,
-					.enable_anisotropy = true,
-				};
-			}
-
-			return {};
-		}();
+		auto sampler_info = to_sdl(type);
 
 		auto sampler = SDL_CreateGPUSampler(gpu, &sampler_info);
 		assert(sampler != nullptr and "Failed to create sampler.");
