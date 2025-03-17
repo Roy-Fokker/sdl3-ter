@@ -96,6 +96,8 @@ export namespace ter
 			} proj_view;
 
 			gfx_pipeline_ptr gfx_pipeline;
+			gpu_texture_ptr depth_texture;
+
 			gpu_buffer_ptr vertex_buffer;
 			gpu_buffer_ptr index_buffer;
 			uint32_t vertex_count;
@@ -132,7 +134,7 @@ namespace
 	constexpr auto WND_HEIGHT = WND_WIDTH * 9 / 16;
 
 	constexpr auto FOV_ANGLE = 90.f;
-	constexpr auto FAR_PLANE = 100.f;
+	constexpr auto FAR_PLANE = 1200.f;
 
 	constexpr auto TER_WIDTH = 1024;
 
@@ -258,7 +260,20 @@ namespace
 		return { buffer, { gpu } };
 	}
 
-	auto make_gpu_texture(SDL_GPUDevice *gpu, ter::image_t::header_t img_hdr, std::string_view debug_name) -> gpu_texture_ptr
+	auto make_gpu_texture(SDL_GPUDevice *gpu, const SDL_GPUTextureCreateInfo &texture_info, std::string_view debug_name) -> gpu_texture_ptr
+	{
+		auto texture = SDL_CreateGPUTexture(gpu, &texture_info);
+		assert(texture != nullptr and "Failed to create gpu texture.");
+
+		if (IS_DEBUG and debug_name.size() > 0)
+		{
+			SDL_SetGPUTextureName(gpu, texture, debug_name.data());
+		}
+
+		return { texture, { gpu } };
+	}
+
+	auto make_gpu_texture(SDL_GPUDevice *gpu, const ter::image_t::header_t img_hdr, std::string_view debug_name) -> gpu_texture_ptr
 	{
 		auto texture_info = SDL_GPUTextureCreateInfo{
 			.type                 = SDL_GPU_TEXTURETYPE_2D,
@@ -271,15 +286,7 @@ namespace
 			.sample_count         = SDL_GPU_SAMPLECOUNT_1,
 		};
 
-		auto texture = SDL_CreateGPUTexture(gpu, &texture_info);
-		assert(texture != nullptr and "Failed to create gpu texture.");
-
-		if (IS_DEBUG and debug_name.size() > 0)
-		{
-			SDL_SetGPUTextureName(gpu, texture, debug_name.data());
-		}
-
-		return { texture, { gpu } };
+		return make_gpu_texture(gpu, texture_info, debug_name);
 	}
 
 	auto make_gpu_sampler(SDL_GPUDevice *gpu, sampler_type type) -> gfx_sampler_ptr
@@ -552,7 +559,7 @@ void application::make_gfx_pipeline()
 		.vertex_attributes          = va,
 		.vertex_buffer_descriptions = vbd,
 		.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
-		.enable_depth_test          = false,
+		.enable_depth_test          = true,
 		.culling                    = cull_mode::back_ccw,
 	};
 	scn.gfx_pipeline = pl.build(gpu.get());
@@ -634,6 +641,30 @@ void application::load_texture()
 	upload_to_gpu(gpu.get(), scn.terrain_heightmap.get(), ter_height);
 
 	scn.terrain_sampler = make_gpu_sampler(gpu.get(), sampler_type::anisotropic_clamp);
+
+	// Depth Texture
+	auto w = 0, h = 0;
+	SDL_GetWindowSizeInPixels(wnd.get(), &w, &h);
+
+	auto texture_info = SDL_GPUTextureCreateInfo{
+		.type                 = SDL_GPU_TEXTURETYPE_2D,
+		.format               = DEPTH_FORMAT,
+		.usage                = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+		.width                = static_cast<uint32_t>(w),
+		.height               = static_cast<uint32_t>(h),
+		.layer_count_or_depth = 1,
+		.num_levels           = 1,
+		.sample_count         = SDL_GPU_SAMPLECOUNT_1,
+	};
+#ifdef WINDOWS
+	if (texture_info.usage & SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET)
+	{
+		auto props = SDL_CreateProperties();
+		SDL_SetFloatProperty(props, SDL_PROP_GPU_TEXTURE_CREATE_D3D12_CLEAR_DEPTH_FLOAT, 1.0f);
+		texture_info.props = props;
+	}
+#endif
+	scn.depth_texture = make_gpu_texture(gpu.get(), texture_info, "Depth Texture");
 }
 
 void application::run_compute()
@@ -683,7 +714,18 @@ void application::draw()
 		.store_op    = SDL_GPU_STOREOP_STORE,
 	};
 
-	auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, nullptr);
+	auto depth_target = SDL_GPUDepthStencilTargetInfo{
+		.texture          = scn.depth_texture.get(),
+		.clear_depth      = 1.0f,
+		.load_op          = SDL_GPU_LOADOP_CLEAR,
+		.store_op         = SDL_GPU_STOREOP_STORE,
+		.stencil_load_op  = SDL_GPU_LOADOP_CLEAR,
+		.stencil_store_op = SDL_GPU_STOREOP_STORE,
+		.cycle            = true,
+		.clear_stencil    = 0,
+	};
+
+	auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, &depth_target);
 	{
 		SDL_BindGPUGraphicsPipeline(render_pass, scn.gfx_pipeline.get());
 
