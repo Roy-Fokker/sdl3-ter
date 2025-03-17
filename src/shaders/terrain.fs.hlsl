@@ -15,7 +15,7 @@ float4 main(Input input) : SV_Target0
 	float3 dbcoordY = ddy(input.baryWeights);
 
 	float3 dbcoord = sqrt(dbcoordX * dbcoordX + dbcoordY * dbcoordY);
-	float thickness = 1.5f;
+	float thickness = 0.5f;
 
 	float3 remap = smoothstep(float3(0.f, 0.f, 0.f), dbcoord * thickness, input.baryWeights);
 
@@ -23,7 +23,7 @@ float4 main(Input input) : SV_Target0
 	
 	float4 color = Texture.Sample(Sampler, input.TexCoord);
 
-	//color = float4(color.rgb, 1.0f) * wireframe;
+	//color = float4(color.rgb * wireframe, 1.0f);
 
 	return color;
 }
