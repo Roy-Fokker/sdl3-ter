@@ -103,7 +103,7 @@ export namespace ter
 			uint32_t ter_cs_idx_cnt;
 			comp_pipeline_ptr comp_pipeline;
 
-gfx_pipeline_ptr ter_cm_gfx_pl; // not using compute shader
+			gfx_pipeline_ptr ter_cm_gfx_pl; // not using compute shader
 			gpu_buffer_ptr ter_cm_vtx_buffer;
 			gpu_buffer_ptr ter_cm_idx_buffer;
 			uint32_t ter_cm_vtx_cnt;
@@ -281,55 +281,110 @@ void application::place_camera()
 
 void application::make_gfx_pipeline()
 {
-	auto vs_shdr = shader_builder{
-		.shader_binary        = read_file("shaders/terrain.vs_6_4.cso"),
-		.stage                = shader_stage::vertex,
-		.uniform_buffer_count = 1,
-	};
+	{ // Pipeline depending on Compute Shader modified vertex buffer
+		auto vs_shdr = shader_builder{
+			.shader_binary        = read_file("shaders/terrain.vs_6_4.cso"),
+			.stage                = shader_stage::vertex,
+			.uniform_buffer_count = 1,
+		};
 
-	auto fs_shdr = shader_builder{
-		.shader_binary = read_file("shaders/terrain.ps_6_4.cso"),
-		.stage         = shader_stage::fragment,
-		.sampler_count = 1,
-	};
+		auto fs_shdr = shader_builder{
+			.shader_binary = read_file("shaders/terrain.ps_6_4.cso"),
+			.stage         = shader_stage::fragment,
+			.sampler_count = 1,
+		};
 
-	using VA = SDL_GPUVertexAttribute;
-	auto va  = std::array{
-        VA{
-		   .location    = 0,
-		   .buffer_slot = 0,
-		   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-		   .offset      = 0,
-        },
-        VA{
-		   .location    = 1,
-		   .buffer_slot = 0,
-		   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
-		   .offset      = sizeof(glm::vec3),
-        },
-	};
+		using VA = SDL_GPUVertexAttribute;
+		auto va  = std::array{
+            VA{
+			   .location    = 0,
+			   .buffer_slot = 0,
+			   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+			   .offset      = 0,
+            },
+            VA{
+			   .location    = 1,
+			   .buffer_slot = 0,
+			   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+			   .offset      = offsetof(vertex, uv), // sizeof(glm::vec3),
+            },
+		};
 
-	using VBD = SDL_GPUVertexBufferDescription;
-	auto vbd  = std::array{
-        VBD{
-		   .slot       = 0,
-		   .pitch      = sizeof(vertex),
-		   .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
-        },
-	};
+		using VBD = SDL_GPUVertexBufferDescription;
+		auto vbd  = std::array{
+            VBD{
+			   .slot       = 0,
+			   .pitch      = sizeof(vertex),
+			   .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
+            },
+		};
 
-	auto pl = gfx_pipeline_builder{
-		.vertex_shader              = vs_shdr.build(gpu.get()),
-		.fragment_shader            = fs_shdr.build(gpu.get()),
-		.vertex_attributes          = va,
-		.vertex_buffer_descriptions = vbd,
-		.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
-		.enable_depth_stencil       = true,
-		.raster                     = raster_type::back_ccw_fill,
-		.blend                      = blend_type::none,
-		.topology                   = topology_type::triangle_list,
-	};
-	scn.gfx_pipeline = pl.build(gpu.get());
+		auto pl = gfx_pipeline_builder{
+			.vertex_shader              = vs_shdr.build(gpu.get()),
+			.fragment_shader            = fs_shdr.build(gpu.get()),
+			.vertex_attributes          = va,
+			.vertex_buffer_descriptions = vbd,
+			.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
+			.enable_depth_stencil       = true,
+			.raster                     = raster_type::back_ccw_fill,
+			.blend                      = blend_type::none,
+			.topology                   = topology_type::triangle_list,
+		};
+		scn.ter_cs_gfx_pl = pl.build(gpu.get());
+	}
+
+	{ // Clipmap pipeline
+		auto vs_shdr = shader_builder{
+			.shader_binary        = read_file("shaders/cm_terrain.vs_6_4.cso"),
+			.stage                = shader_stage::vertex,
+			.sampler_count        = 1,
+			.uniform_buffer_count = 1,
+		};
+
+		auto fs_shdr = shader_builder{
+			.shader_binary = read_file("shaders/cm_terrain.ps_6_4.cso"),
+			.stage         = shader_stage::fragment,
+			.sampler_count = 1,
+		};
+
+		using VA = SDL_GPUVertexAttribute;
+		auto va  = std::array{
+            VA{
+			   .location    = 0,
+			   .buffer_slot = 0,
+			   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+			   .offset      = 0,
+            },
+            VA{
+			   .location    = 1,
+			   .buffer_slot = 0,
+			   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
+			   .offset      = offsetof(vertex, uv), // sizeof(glm::vec3),
+            },
+		};
+
+		using VBD = SDL_GPUVertexBufferDescription;
+		auto vbd  = std::array{
+            VBD{
+			   .slot       = 0,
+			   .pitch      = sizeof(vertex),
+			   .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX,
+            },
+		};
+
+		auto pl = gfx_pipeline_builder{
+			.vertex_shader              = vs_shdr.build(gpu.get()),
+			.fragment_shader            = fs_shdr.build(gpu.get()),
+			.vertex_attributes          = va,
+			.vertex_buffer_descriptions = vbd,
+			.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
+			.enable_depth_stencil       = true,
+			.raster                     = raster_type::back_ccw_fill,
+			.blend                      = blend_type::none,
+			.topology                   = topology_type::triangle_strip,
+		};
+		scn.ter_cm_gfx_pl = pl.build(gpu.get());
+	}
 }
 
 void application::make_comp_pipeline()
