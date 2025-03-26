@@ -62,3 +62,6 @@
 
 # other files/folders
 .DS_Store
+
+# ignore git patches
+*.patch
