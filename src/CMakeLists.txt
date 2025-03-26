@@ -32,6 +32,7 @@ LIST(APPEND platform_definitions
 # set preprocessor defines
 target_compile_definitions(${PRJ_APP_NAME}
 	PRIVATE
+		$<$<CONFIG:Debug>:DEBUG>
 		${platform_definitions}     # Plaform specific defintions, defined above
 		${glm_definitions}          # GLM defintions, defined above
 )
@@ -52,8 +53,9 @@ target_sources(${PRJ_APP_NAME}
 		app.ixx
 		clock.ixx
 		io.ixx
-		types.ixx
-		pipeline.ixx
+		sdl.ixx
+		sdl-types.ixx
+		sdl-pipeline.ixx
 		camera.ixx
 )
 

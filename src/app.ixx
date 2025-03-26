@@ -9,9 +9,8 @@ import clock;
 import io;
 import camera;
 
-// SDL specific
-import types;
-import pipeline;
+// SDL wrapper
+import sdl;
 
 using namespace std::literals;
 namespace vw = std::views;
@@ -97,16 +96,20 @@ export namespace ter
 				glm::mat4 view;
 			} proj_view;
 
-			gfx_pipeline_ptr gfx_pipeline;
-			gpu_texture_ptr depth_texture;
-
-			gpu_buffer_ptr vertex_buffer;
-			gpu_buffer_ptr index_buffer;
-			uint32_t vertex_count;
-			uint32_t index_count;
-
+			gfx_pipeline_ptr ter_cs_gfx_pl; // using compute shader
+			gpu_buffer_ptr ter_cs_vtx_buffer;
+			gpu_buffer_ptr ter_cs_idx_buffer;
+			uint32_t ter_cs_vtx_cnt;
+			uint32_t ter_cs_idx_cnt;
 			comp_pipeline_ptr comp_pipeline;
 
+gfx_pipeline_ptr ter_cm_gfx_pl; // not using compute shader
+			gpu_buffer_ptr ter_cm_vtx_buffer;
+			gpu_buffer_ptr ter_cm_idx_buffer;
+			uint32_t ter_cm_vtx_cnt;
+			uint32_t ter_cm_idx_cnt;
+
+			gpu_texture_ptr depth_texture;
 			gpu_texture_ptr terrain_heightmap;
 			gfx_sampler_ptr terrain_sampler;
 		};
@@ -130,8 +133,6 @@ using namespace ter;
 
 namespace
 {
-	constexpr auto IS_DEBUG = bool{ _DEBUG };
-
 	constexpr auto WND_WIDTH  = 1280;
 	constexpr auto WND_HEIGHT = WND_WIDTH * 9 / 16;
 
@@ -142,251 +143,11 @@ namespace
 
 	constexpr auto TER_WIDTH = 1024;
 
-	constexpr auto MAX_ANISOTROPY = float{ 16 };
-
 	struct vertex
 	{
 		glm::vec3 pos = {};
 		glm::vec2 uv  = {};
 	};
-
-	enum class sampler_type : uint8_t
-	{
-		point_clamp,
-		point_wrap,
-		linear_clamp,
-		linear_wrap,
-		anisotropic_clamp,
-		anisotropic_wrap,
-	};
-
-	auto to_sdl(sampler_type type) -> SDL_GPUSamplerCreateInfo
-	{
-		switch (type)
-		{
-		case sampler_type::point_clamp:
-			return {
-				.min_filter        = SDL_GPU_FILTER_NEAREST,
-				.mag_filter        = SDL_GPU_FILTER_NEAREST,
-				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
-				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.max_anisotropy    = 0,
-				.enable_anisotropy = false,
-			};
-		case sampler_type::point_wrap:
-			return {
-				.min_filter        = SDL_GPU_FILTER_NEAREST,
-				.mag_filter        = SDL_GPU_FILTER_NEAREST,
-				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST,
-				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.max_anisotropy    = 0,
-				.enable_anisotropy = false,
-			};
-		case sampler_type::linear_clamp:
-			return {
-				.min_filter        = SDL_GPU_FILTER_LINEAR,
-				.mag_filter        = SDL_GPU_FILTER_LINEAR,
-				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.max_anisotropy    = 0,
-				.enable_anisotropy = false,
-			};
-		case sampler_type::linear_wrap:
-			return {
-				.min_filter        = SDL_GPU_FILTER_LINEAR,
-				.mag_filter        = SDL_GPU_FILTER_LINEAR,
-				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.max_anisotropy    = 0,
-				.enable_anisotropy = false,
-			};
-		case sampler_type::anisotropic_clamp:
-			return {
-				.min_filter        = SDL_GPU_FILTER_LINEAR,
-				.mag_filter        = SDL_GPU_FILTER_LINEAR,
-				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE,
-				.max_anisotropy    = MAX_ANISOTROPY,
-				.enable_anisotropy = true,
-			};
-		case sampler_type::anisotropic_wrap:
-			return {
-				.min_filter        = SDL_GPU_FILTER_LINEAR,
-				.mag_filter        = SDL_GPU_FILTER_LINEAR,
-				.mipmap_mode       = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR,
-				.address_mode_u    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.address_mode_v    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.address_mode_w    = SDL_GPU_SAMPLERADDRESSMODE_REPEAT,
-				.max_anisotropy    = MAX_ANISOTROPY,
-				.enable_anisotropy = true,
-			};
-		}
-
-		return {};
-	}
-
-	auto get_swapchain_texture(SDL_Window *win, SDL_GPUCommandBuffer *cmd_buf) -> SDL_GPUTexture *
-	{
-		auto sc_tex = (SDL_GPUTexture *)nullptr;
-
-		auto res = SDL_WaitAndAcquireGPUSwapchainTexture(cmd_buf, win, &sc_tex, NULL, NULL);
-		assert(res == true and "Wait and acquire GPU swapchain texture failed.");
-		assert(sc_tex != nullptr and "Swapchain texture is null. Is window minimized?");
-
-		return sc_tex;
-	}
-
-	auto make_gpu_buffer(SDL_GPUDevice *gpu, SDL_GPUBufferUsageFlags usage, uint32_t size, std::string_view debug_name) -> gpu_buffer_ptr
-	{
-		auto buffer_info = SDL_GPUBufferCreateInfo{
-			.usage = usage,
-			.size  = size,
-		};
-
-		auto buffer = SDL_CreateGPUBuffer(gpu, &buffer_info);
-		assert(buffer != nullptr and "Failed to create gpu buffer");
-
-		if (IS_DEBUG and debug_name.size() > 0)
-		{
-			SDL_SetGPUBufferName(gpu, buffer, debug_name.data());
-		}
-
-		return { buffer, { gpu } };
-	}
-
-	auto make_gpu_texture(SDL_GPUDevice *gpu, const SDL_GPUTextureCreateInfo &texture_info, std::string_view debug_name) -> gpu_texture_ptr
-	{
-		auto texture = SDL_CreateGPUTexture(gpu, &texture_info);
-		assert(texture != nullptr and "Failed to create gpu texture.");
-
-		if (IS_DEBUG and debug_name.size() > 0)
-		{
-			SDL_SetGPUTextureName(gpu, texture, debug_name.data());
-		}
-
-		return { texture, { gpu } };
-	}
-
-	auto make_gpu_texture(SDL_GPUDevice *gpu, const ter::image_t::header_t img_hdr, std::string_view debug_name) -> gpu_texture_ptr
-	{
-		auto texture_info = SDL_GPUTextureCreateInfo{
-			.type                 = SDL_GPU_TEXTURETYPE_2D,
-			.format               = to_sdl(img_hdr.format),
-			.usage                = SDL_GPU_TEXTUREUSAGE_SAMPLER,
-			.width                = img_hdr.width,
-			.height               = img_hdr.height,
-			.layer_count_or_depth = img_hdr.depth,
-			.num_levels           = img_hdr.mipmap_count,
-			.sample_count         = SDL_GPU_SAMPLECOUNT_1,
-		};
-
-		return make_gpu_texture(gpu, texture_info, debug_name);
-	}
-
-	auto make_gpu_sampler(SDL_GPUDevice *gpu, sampler_type type) -> gfx_sampler_ptr
-	{
-		auto sampler_info = to_sdl(type);
-
-		auto sampler = SDL_CreateGPUSampler(gpu, &sampler_info);
-		assert(sampler != nullptr and "Failed to create sampler.");
-
-		return { sampler, { gpu } };
-	}
-
-	void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUBuffer *buffer, byte_span src_data)
-	{
-		auto src_size = static_cast<uint32_t>(src_data.size());
-
-		auto transfer_info = SDL_GPUTransferBufferCreateInfo{
-			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-			.size  = src_size,
-		};
-		auto transfer_buffer = SDL_CreateGPUTransferBuffer(gpu, &transfer_info);
-		assert(transfer_buffer != nullptr and "Failed to create transfer buffer.");
-
-		auto dst_data = SDL_MapGPUTransferBuffer(gpu, transfer_buffer, false);
-		std::memcpy(dst_data, src_data.data(), src_size);
-		SDL_UnmapGPUTransferBuffer(gpu, transfer_buffer);
-
-		auto copy_cmd = SDL_AcquireGPUCommandBuffer(gpu);
-		{
-			auto copy_pass = SDL_BeginGPUCopyPass(copy_cmd);
-			{
-				auto src = SDL_GPUTransferBufferLocation{
-					.transfer_buffer = transfer_buffer,
-					.offset          = 0,
-				};
-
-				auto dst = SDL_GPUBufferRegion{
-					.buffer = buffer,
-					.offset = 0,
-					.size   = src_size,
-				};
-
-				SDL_UploadToGPUBuffer(copy_pass, &src, &dst, false);
-			}
-			SDL_EndGPUCopyPass(copy_pass);
-			SDL_SubmitGPUCommandBuffer(copy_cmd);
-		}
-		SDL_ReleaseGPUTransferBuffer(gpu, transfer_buffer);
-	}
-
-	void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUTexture *texture, const image_t &img)
-	{
-		auto src_size = static_cast<uint32_t>(img.data.size());
-
-		auto transfer_info = SDL_GPUTransferBufferCreateInfo{
-			.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-			.size  = src_size,
-		};
-		auto transfer_buffer = SDL_CreateGPUTransferBuffer(gpu, &transfer_info);
-		assert(transfer_buffer != nullptr and "Failed to create transfer buffer.");
-
-		auto dst_data = SDL_MapGPUTransferBuffer(gpu, transfer_buffer, false);
-		std::memcpy(dst_data, img.data.data(), src_size);
-		SDL_UnmapGPUTransferBuffer(gpu, transfer_buffer);
-
-		auto copy_cmd = SDL_AcquireGPUCommandBuffer(gpu);
-		{
-			auto copy_pass = SDL_BeginGPUCopyPass(copy_cmd);
-			{
-				auto src = SDL_GPUTextureTransferInfo{
-					.transfer_buffer = transfer_buffer,
-					.offset          = 0,
-				};
-
-				auto dst = SDL_GPUTextureRegion{
-					.texture = texture,
-				};
-
-				for (auto &&sub_image : img.sub_images)
-				{
-					src.offset = static_cast<uint32_t>(sub_image.offset);
-
-					dst.mip_level = sub_image.mipmap_index;
-					dst.layer     = sub_image.layer_index;
-					dst.w         = sub_image.width;
-					dst.h         = sub_image.height;
-					dst.d         = 1;
-
-					SDL_UploadToGPUTexture(copy_pass, &src, &dst, false);
-				}
-			}
-			SDL_EndGPUCopyPass(copy_pass);
-			SDL_SubmitGPUCommandBuffer(copy_cmd);
-		}
-		SDL_ReleaseGPUTransferBuffer(gpu, transfer_buffer);
-	}
 }
 
 void application::make_window()
@@ -623,16 +384,16 @@ void application::make_mesh()
 	}
 
 	{ // Create Buffer on GPU and populate
-		scn.vertex_count = static_cast<uint32_t>(vertices.size());
-		scn.index_count  = static_cast<uint32_t>(indices.size());
+		scn.ter_cs_vtx_cnt = static_cast<uint32_t>(vertices.size());
+		scn.ter_cs_idx_cnt = static_cast<uint32_t>(indices.size());
 
-		auto vb_size      = static_cast<uint32_t>(scn.vertex_count * sizeof(vertex));
-		scn.vertex_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "Terrain Vertices");
-		upload_to_gpu(gpu.get(), scn.vertex_buffer.get(), as_byte_span(vertices));
+		auto vb_size          = static_cast<uint32_t>(scn.ter_cs_vtx_cnt * sizeof(vertex));
+		scn.ter_cs_vtx_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "Terrain Vertices");
+		upload_to_gpu(gpu.get(), scn.ter_cs_vtx_buffer.get(), as_byte_span(vertices));
 
-		auto ib_size     = static_cast<uint32_t>(scn.index_count * sizeof(uint32_t));
-		scn.index_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_INDEX, ib_size, "Terrain Indices");
-		upload_to_gpu(gpu.get(), scn.index_buffer.get(), as_byte_span(indices));
+		auto ib_size          = static_cast<uint32_t>(scn.ter_cs_idx_cnt * sizeof(uint32_t));
+		scn.ter_cs_idx_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_INDEX, ib_size, "Terrain Indices");
+		upload_to_gpu(gpu.get(), scn.ter_cs_idx_buffer.get(), as_byte_span(indices));
 	}
 }
 
@@ -675,7 +436,7 @@ void application::run_compute()
 	auto cmd_buf = SDL_AcquireGPUCommandBuffer(gpu.get());
 
 	auto rw_uniform_binding = SDL_GPUStorageBufferReadWriteBinding{
-		.buffer = scn.vertex_buffer.get(),
+		.buffer = scn.ter_cs_vtx_buffer.get(),
 		.cycle  = false,
 	};
 	auto compute_pass = SDL_BeginGPUComputePass(cmd_buf, NULL, 0, &rw_uniform_binding, 1);
@@ -688,7 +449,7 @@ void application::run_compute()
 		};
 		SDL_BindGPUComputeSamplers(compute_pass, 0, &sampler_binding, 1);
 
-		SDL_DispatchGPUCompute(compute_pass, scn.vertex_count / 1024, 1, 1);
+		SDL_DispatchGPUCompute(compute_pass, scn.ter_cs_vtx_cnt / 1024, 1, 1);
 	}
 	SDL_EndGPUComputePass(compute_pass);
 	SDL_SubmitGPUCommandBuffer(cmd_buf);
@@ -730,18 +491,18 @@ void application::draw()
 
 	auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, &depth_target);
 	{
-		SDL_BindGPUGraphicsPipeline(render_pass, scn.gfx_pipeline.get());
+		SDL_BindGPUGraphicsPipeline(render_pass, scn.ter_cs_gfx_pl.get());
 
 		auto vertex_bindings = std::array{
 			SDL_GPUBufferBinding{
-			  .buffer = scn.vertex_buffer.get(),
+			  .buffer = scn.ter_cs_vtx_buffer.get(),
 			  .offset = 0,
 			},
 		};
 		SDL_BindGPUVertexBuffers(render_pass, 0, vertex_bindings.data(), static_cast<uint32_t>(vertex_bindings.size()));
 
 		auto index_binding = SDL_GPUBufferBinding{
-			.buffer = scn.index_buffer.get(),
+			.buffer = scn.ter_cs_idx_buffer.get(),
 			.offset = 0,
 		};
 		SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
@@ -752,7 +513,7 @@ void application::draw()
 		};
 		SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
 
-		SDL_DrawGPUIndexedPrimitives(render_pass, scn.index_count, 1, 0, 0, 0);
+		SDL_DrawGPUIndexedPrimitives(render_pass, scn.ter_cs_idx_cnt, 1, 0, 0, 0);
 	}
 	SDL_EndGPURenderPass(render_pass);
 

@@ -1,10 +1,10 @@
 module;
 
-export module pipeline;
+export module sdl:pipeline;
 
 import std;
 import io;
-import types;
+import :types;
 
 namespace rg = std::ranges;
 namespace vw = std::views;
