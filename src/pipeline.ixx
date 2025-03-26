@@ -6,8 +6,30 @@ import std;
 import io;
 import types;
 
+namespace rg = std::ranges;
+namespace vw = std::views;
+
 export namespace ter
 {
+	auto get_gpu_supported_shader_format(SDL_GPUDevice *gpu) -> SDL_GPUShaderFormat
+	{
+		auto backend_formats = SDL_GetGPUShaderFormats(gpu);
+
+		if (backend_formats & SDL_GPU_SHADERFORMAT_DXIL)
+		{
+			return SDL_GPU_SHADERFORMAT_DXIL;
+		}
+
+		if (backend_formats & SDL_GPU_SHADERFORMAT_SPIRV)
+		{
+			return SDL_GPU_SHADERFORMAT_SPIRV;
+		}
+
+		// TODO: add other backends
+
+		return SDL_GPU_SHADERFORMAT_INVALID;
+	}
+
 	enum class shader_stage : uint8_t
 	{
 		invalid,
@@ -45,7 +67,7 @@ export namespace ter
 				.code_size            = shader_binary.size(),
 				.code                 = reinterpret_cast<const uint8_t *>(shader_binary.data()),
 				.entrypoint           = "main",
-				.format               = SHADER_FORMAT,
+				.format               = get_gpu_supported_shader_format(gpu),
 				.stage                = to_sdl(stage),
 				.num_samplers         = sampler_count,
 				.num_storage_textures = storage_texture_count,
@@ -60,14 +82,184 @@ export namespace ter
 		}
 	};
 
-	enum class cull_mode : uint8_t
+	enum class raster_type : uint8_t
+	{
+		none_fill,
+		none_wire,
+		front_ccw_fill,
+		front_ccw_wire,
+		back_ccw_fill,
+		back_ccw_wire,
+		front_cw_fill,
+		front_cw_wire,
+		back_cw_fill,
+		back_cw_wire,
+	};
+
+	auto to_sdl(raster_type type) -> SDL_GPURasterizerState
+	{
+		switch (type)
+		{
+		case raster_type::none_fill:
+			return {
+				.fill_mode = SDL_GPU_FILLMODE_FILL,
+				.cull_mode = SDL_GPU_CULLMODE_NONE,
+			};
+		case raster_type::none_wire:
+			return {
+				.fill_mode = SDL_GPU_FILLMODE_LINE,
+				.cull_mode = SDL_GPU_CULLMODE_NONE,
+			};
+		case raster_type::front_ccw_fill:
+			return {
+				.fill_mode  = SDL_GPU_FILLMODE_FILL,
+				.cull_mode  = SDL_GPU_CULLMODE_FRONT,
+				.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+			};
+		case raster_type::front_ccw_wire:
+			return {
+				.fill_mode  = SDL_GPU_FILLMODE_LINE,
+				.cull_mode  = SDL_GPU_CULLMODE_FRONT,
+				.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+			};
+		case raster_type::back_ccw_fill:
+			return {
+				.fill_mode  = SDL_GPU_FILLMODE_FILL,
+				.cull_mode  = SDL_GPU_CULLMODE_BACK,
+				.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+			};
+		case raster_type::back_ccw_wire:
+			return {
+				.fill_mode  = SDL_GPU_FILLMODE_LINE,
+				.cull_mode  = SDL_GPU_CULLMODE_BACK,
+				.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE,
+			};
+		case raster_type::front_cw_fill:
+			return {
+				.fill_mode  = SDL_GPU_FILLMODE_FILL,
+				.cull_mode  = SDL_GPU_CULLMODE_FRONT,
+				.front_face = SDL_GPU_FRONTFACE_CLOCKWISE,
+			};
+		case raster_type::front_cw_wire:
+			return {
+				.fill_mode  = SDL_GPU_FILLMODE_LINE,
+				.cull_mode  = SDL_GPU_CULLMODE_FRONT,
+				.front_face = SDL_GPU_FRONTFACE_CLOCKWISE,
+			};
+		case raster_type::back_cw_fill:
+			return {
+				.fill_mode  = SDL_GPU_FILLMODE_FILL,
+				.cull_mode  = SDL_GPU_CULLMODE_BACK,
+				.front_face = SDL_GPU_FRONTFACE_CLOCKWISE,
+			};
+		case raster_type::back_cw_wire:
+			return {
+				.fill_mode  = SDL_GPU_FILLMODE_LINE,
+				.cull_mode  = SDL_GPU_CULLMODE_BACK,
+				.front_face = SDL_GPU_FRONTFACE_CLOCKWISE,
+			};
+		}
+		assert(false and "Unhandled raster type");
+		return {};
+	}
+
+	enum class blend_type : uint8_t
 	{
 		none,
-		front_ccw,
-		back_ccw,
-		front_cw,
-		back_cw,
+		opaque,
+		alpha,
+		additive,
+		non_premultiplied,
 	};
+
+	auto to_sdl(blend_type type) -> SDL_GPUColorTargetBlendState
+	{
+		// TODO: verify and fix blend ops for different types.
+
+		auto src    = SDL_GPUBlendFactor{ SDL_GPU_BLENDFACTOR_ONE };
+		auto dst    = SDL_GPUBlendFactor{ SDL_GPU_BLENDFACTOR_ONE };
+		auto op     = SDL_GPUBlendOp{ SDL_GPU_BLENDOP_ADD };
+		auto enable = false;
+
+		switch (type)
+		{
+		case blend_type::opaque:
+			src = SDL_GPU_BLENDFACTOR_ONE;
+			dst = SDL_GPU_BLENDFACTOR_ZERO;
+			break;
+		case blend_type::alpha:
+			src = SDL_GPU_BLENDFACTOR_ONE;
+			dst = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+			break;
+		case blend_type::additive:
+			src = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+			dst = SDL_GPU_BLENDFACTOR_ONE;
+			break;
+		case blend_type::non_premultiplied:
+			src = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+			dst = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+			break;
+		}
+
+		enable = ((src != SDL_GPU_BLENDFACTOR_ONE) or (dst != SDL_GPU_BLENDFACTOR_ONE));
+
+		return {
+			.src_color_blendfactor = src,
+			.dst_color_blendfactor = dst,
+			.color_blend_op        = op,
+			.src_alpha_blendfactor = src,
+			.dst_alpha_blendfactor = dst,
+			.alpha_blend_op        = op,
+			.enable_blend          = enable,
+		};
+	}
+
+	auto get_gpu_supported_depth_stencil_format(SDL_GPUDevice *gpu) -> SDL_GPUTextureFormat
+	{
+		constexpr auto depth_formats = std::array{
+			SDL_GPU_TEXTUREFORMAT_D32_FLOAT_S8_UINT,
+			SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+			SDL_GPU_TEXTUREFORMAT_D32_FLOAT,
+			SDL_GPU_TEXTUREFORMAT_D24_UNORM,
+			SDL_GPU_TEXTUREFORMAT_D16_UNORM,
+		};
+
+		auto rng = depth_formats | vw::filter([&](const auto fmt) {
+			return SDL_GPUTextureSupportsFormat(gpu, fmt, SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET);
+		}) | vw::take(1);
+
+		assert(rng.begin() != rng.end() and "None of the depth formats are supported.");
+
+		return *rng.begin();
+	}
+
+	enum class topology_type : uint8_t
+	{
+		triangle_list,
+		triangle_strip,
+		line_list,
+		line_strip,
+		point_list,
+	};
+
+	auto to_sdl(topology_type type) -> SDL_GPUPrimitiveType
+	{
+		switch (type)
+		{
+		case topology_type::triangle_list:
+			return SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+		case topology_type::triangle_strip:
+			return SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP;
+		case topology_type::line_list:
+			return SDL_GPU_PRIMITIVETYPE_LINELIST;
+		case topology_type::line_strip:
+			return SDL_GPU_PRIMITIVETYPE_LINESTRIP;
+		case topology_type::point_list:
+			return SDL_GPU_PRIMITIVETYPE_POINTLIST;
+		}
+		assert(false and "Unhandled topology type");
+		return {};
+	}
 
 	struct gfx_pipeline_builder
 	{
@@ -78,9 +270,11 @@ export namespace ter
 		std::span<const SDL_GPUVertexBufferDescription> vertex_buffer_descriptions = {};
 
 		SDL_GPUTextureFormat color_format = {};
-		bool enable_depth_test            = false;
+		bool enable_depth_stencil         = false;
 
-		cull_mode culling = cull_mode::none;
+		raster_type raster     = {};
+		blend_type blend       = {};
+		topology_type topology = {};
 
 		auto build(SDL_GPUDevice *gpu) const -> gfx_pipeline_ptr
 		{
@@ -91,91 +285,49 @@ export namespace ter
 				.num_vertex_attributes      = static_cast<uint32_t>(vertex_attributes.size()),
 			};
 
-			auto rasterizer_state = [&]() -> SDL_GPURasterizerState {
-				switch (culling)
-				{
-					using cm = cull_mode;
-				case cm::none:
-					return {
-						.fill_mode = SDL_GPU_FILLMODE_FILL,
-						.cull_mode = SDL_GPU_CULLMODE_NONE,
-					};
-				case cm::front_ccw:
-					return {
-						.fill_mode  = SDL_GPU_FILLMODE_FILL,
-						.cull_mode  = SDL_GPU_CULLMODE_FRONT,
-						.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
-					};
-				case cm::back_ccw:
-					return {
-						.fill_mode  = SDL_GPU_FILLMODE_FILL,
-						.cull_mode  = SDL_GPU_CULLMODE_BACK,
-						.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
-					};
-				case cm::front_cw:
-					return {
-						.fill_mode  = SDL_GPU_FILLMODE_FILL,
-						.cull_mode  = SDL_GPU_CULLMODE_FRONT,
-						.front_face = SDL_GPU_FRONTFACE_CLOCKWISE
-					};
-				case cm::back_cw:
-					return {
-						.fill_mode  = SDL_GPU_FILLMODE_FILL,
-						.cull_mode  = SDL_GPU_CULLMODE_BACK,
-						.front_face = SDL_GPU_FRONTFACE_CLOCKWISE
-					};
-				}
-				assert(false and "Unhandled Cull Mode case.");
-				return {};
-			}();
+			auto depth_stencil_state  = SDL_GPUDepthStencilState{};
+			auto depth_stencil_format = SDL_GPUTextureFormat{};
 
-			auto depth_stencil_state = SDL_GPUDepthStencilState{};
-			if (enable_depth_test)
+			// Surpringly AMD doesn't support D24 on Vulkan, it does on DirectX??
+			if (enable_depth_stencil)
 			{
 				depth_stencil_state = SDL_GPUDepthStencilState{
 					.compare_op          = SDL_GPU_COMPAREOP_LESS,
 					.write_mask          = std::numeric_limits<uint8_t>::max(),
 					.enable_depth_test   = true,
 					.enable_depth_write  = true,
-					.enable_stencil_test = false,
+					.enable_stencil_test = false, // TODO: figure out how to enable stencil under current api
 				};
-			}
 
-			auto blend_state = SDL_GPUColorTargetBlendState{
-				.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA,
-				.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA,
-				.color_blend_op        = SDL_GPU_BLENDOP_ADD,
-				.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE,
-				.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ZERO,
-				.alpha_blend_op        = SDL_GPU_BLENDOP_ADD,
-				.enable_blend          = true,
-			};
+				depth_stencil_format = get_gpu_supported_depth_stencil_format(gpu);
+			}
 
 			auto color_targets = std::array{
 				SDL_GPUColorTargetDescription{
 				  .format      = color_format,
-				  .blend_state = blend_state,
+				  .blend_state = to_sdl(blend),
 				},
 			};
 
 			auto target_info = SDL_GPUGraphicsPipelineTargetInfo{
 				.color_target_descriptions = color_targets.data(),
 				.num_color_targets         = static_cast<uint32_t>(color_targets.size()),
-				.depth_stencil_format      = DEPTH_FORMAT,
-				.has_depth_stencil_target  = enable_depth_test,
+				.depth_stencil_format      = depth_stencil_format,
+				.has_depth_stencil_target  = enable_depth_stencil,
 			};
 
 			auto pipeline_info = SDL_GPUGraphicsPipelineCreateInfo{
 				.vertex_shader       = vertex_shader.get(),
 				.fragment_shader     = fragment_shader.get(),
 				.vertex_input_state  = vertex_input_state,
-				.primitive_type      = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-				.rasterizer_state    = rasterizer_state,
+				.primitive_type      = to_sdl(topology),
+				.rasterizer_state    = to_sdl(raster),
 				.depth_stencil_state = depth_stencil_state,
 				.target_info         = target_info,
 			};
+
 			auto pipeline = SDL_CreateGPUGraphicsPipeline(gpu, &pipeline_info);
-			assert(pipeline != nullptr and "Failed to create pipeline.");
+			assert(pipeline != nullptr and "Failed to create graphics pipeline.");
 
 			return { pipeline, { gpu } };
 		}
@@ -198,7 +350,7 @@ export namespace ter
 				.code_size                      = shader_binary.size(),
 				.code                           = reinterpret_cast<const uint8_t *>(shader_binary.data()),
 				.entrypoint                     = "main",
-				.format                         = SHADER_FORMAT,
+				.format                         = get_gpu_supported_shader_format(gpu),
 				.num_samplers                   = sampler_count,
 				.num_readonly_storage_textures  = readonly_storage_texture_count,
 				.num_readonly_storage_buffers   = readonly_storage_uniform_count,

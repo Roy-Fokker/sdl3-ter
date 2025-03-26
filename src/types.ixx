@@ -7,9 +7,6 @@ import io;
 
 export namespace ter
 {
-	constexpr auto SHADER_FORMAT = SDL_GPU_SHADERFORMAT_DXIL;
-	constexpr auto DEPTH_FORMAT  = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT;
-
 	// Deleter template, for use with SDL objects.
 	// Allows use of SDL Objects with C++'s smart pointers, using SDL's destroy function
 	template <auto fn>

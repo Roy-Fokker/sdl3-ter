@@ -14,6 +14,8 @@ import types;
 import pipeline;
 
 using namespace std::literals;
+namespace vw = std::views;
+namespace rg = std::ranges;
 
 export namespace ter
 {
@@ -133,7 +135,9 @@ namespace
 	constexpr auto WND_WIDTH  = 1280;
 	constexpr auto WND_HEIGHT = WND_WIDTH * 9 / 16;
 
-	constexpr auto FOV_ANGLE = 90.f;
+	constexpr auto SHADER_FORMAT = SDL_GPU_SHADERFORMAT_DXIL;
+
+	constexpr auto FOV_ANGLE = 60.f;
 	constexpr auto FAR_PLANE = 1200.f;
 
 	constexpr auto TER_WIDTH = 1024;
@@ -559,8 +563,10 @@ void application::make_gfx_pipeline()
 		.vertex_attributes          = va,
 		.vertex_buffer_descriptions = vbd,
 		.color_format               = SDL_GetGPUSwapchainTextureFormat(gpu.get(), wnd.get()),
-		.enable_depth_test          = true,
-		.culling                    = cull_mode::back_ccw,
+		.enable_depth_stencil       = true,
+		.raster                     = raster_type::back_ccw_fill,
+		.blend                      = blend_type::none,
+		.topology                   = topology_type::triangle_list,
 	};
 	scn.gfx_pipeline = pl.build(gpu.get());
 }
@@ -585,9 +591,6 @@ void application::make_mesh()
 	{ // Make Mesh
 		const auto x = 0.5f, y = 0.0f, z = 0.5f;
 		const auto w_2 = TER_WIDTH / 2;
-
-		namespace vw = std::views;
-		namespace rg = std::ranges;
 
 		const auto uv         = 1.f / TER_WIDTH;
 		const auto vtx_square = std::array{
@@ -648,7 +651,7 @@ void application::load_texture()
 
 	auto texture_info = SDL_GPUTextureCreateInfo{
 		.type                 = SDL_GPU_TEXTURETYPE_2D,
-		.format               = DEPTH_FORMAT,
+		.format               = get_gpu_supported_depth_stencil_format(gpu.get()),
 		.usage                = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
 		.width                = static_cast<uint32_t>(w),
 		.height               = static_cast<uint32_t>(h),
