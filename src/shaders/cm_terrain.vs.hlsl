@@ -29,6 +29,9 @@ Output main(Input input)
 	Output output;
 	output.TexCoord = input.TexCoord;
 
+	float4 clr = Texture.SampleLevel(Sampler, input.TexCoord, 0.0f);
+	input.Position.y = clr.r * 128.f - 64.f;
+
 	float4 pos = float4(input.Position, 1.0f);
 
 	output.Position = mul(ubo.projection, mul(ubo.view, pos));

@@ -381,7 +381,7 @@ void application::make_gfx_pipeline()
 			.enable_depth_stencil       = true,
 			.raster                     = raster_type::back_ccw_fill,
 			.blend                      = blend_type::none,
-			.topology                   = topology_type::triangle_strip,
+			.topology                   = topology_type::triangle_list,
 		};
 		scn.ter_cm_gfx_pl = pl.build(gpu.get());
 	}
@@ -546,7 +546,7 @@ void application::draw()
 
 	auto render_pass = SDL_BeginGPURenderPass(cmd_buf, &color_target, 1, &depth_target);
 	{
-		SDL_BindGPUGraphicsPipeline(render_pass, scn.ter_cs_gfx_pl.get());
+		SDL_BindGPUGraphicsPipeline(render_pass, scn.ter_cm_gfx_pl.get());
 
 		auto vertex_bindings = std::array{
 			SDL_GPUBufferBinding{
@@ -567,6 +567,8 @@ void application::draw()
 			.sampler = scn.terrain_sampler.get(),
 		};
 		SDL_BindGPUFragmentSamplers(render_pass, 0, &sampler_binding, 1);
+
+		SDL_BindGPUVertexSamplers(render_pass, 0, &sampler_binding, 1);
 
 		SDL_DrawGPUIndexedPrimitives(render_pass, scn.ter_cs_idx_cnt, 1, 0, 0, 0);
 	}
