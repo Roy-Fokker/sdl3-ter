@@ -259,7 +259,7 @@ void application::initialize_scene()
 
 	load_texture();
 
-	run_compute();
+	// run_compute();
 }
 
 void application::make_perspective()
