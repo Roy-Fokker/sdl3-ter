@@ -300,7 +300,7 @@ void application::make_gfx_pipeline()
 			   .location    = 0,
 			   .buffer_slot = 0,
 			   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-			   .offset      = 0,
+			   .offset      = offsetof(vertex, pos),
             },
             VA{
 			   .location    = 1,
@@ -353,7 +353,7 @@ void application::make_gfx_pipeline()
 			   .location    = 0,
 			   .buffer_slot = 0,
 			   .format      = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-			   .offset      = 0,
+			   .offset      = offsetof(vertex, pos),
             },
             VA{
 			   .location    = 1,
