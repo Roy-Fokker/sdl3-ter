@@ -28,28 +28,13 @@ export namespace ter
 
 		application()
 		{
-			auto result = SDL_Init(SDL_INIT_VIDEO);
-			assert(result and "SDL could not initialize.");
-
 			make_window();
 			make_gpu();
-
-			result = SDL_ClaimWindowForGPUDevice(gpu.get(), wnd.get());
-			assert(result and "Could not claim window for gpu");
 
 			initialize_scene();
 		}
 
-		~application()
-		{
-			scn = {};
-
-			SDL_ReleaseWindowFromGPUDevice(gpu.get(), wnd.get());
-
-			wnd = {};
-			gpu = {};
-			SDL_Quit();
-		}
+		~application() = default;
 
 		auto run() -> int
 		{
@@ -117,6 +102,8 @@ export namespace ter
 	private:
 		ter::clock clk{};
 
+		sdl_base sdl = {};
+
 		window_ptr wnd = nullptr;
 		gpu_ptr gpu    = nullptr;
 
@@ -170,7 +157,10 @@ void application::make_gpu()
 
 	std::println("GPU API Name: {}", SDL_GetGPUDeviceDriver(gdev));
 
-	gpu = gpu_ptr{ gdev };
+	auto result = SDL_ClaimWindowForGPUDevice(gdev, wnd.get());
+	assert(result and "Could not claim window for gpu");
+
+	gpu = gpu_ptr{ gdev, { wnd.get() } };
 }
 
 void application::handle_sdl_events()

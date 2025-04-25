@@ -26,8 +26,21 @@ export namespace ter
 		}
 	};
 	// Define SDL types with std::unique_ptr and custom deleter;
-	using gpu_ptr    = std::unique_ptr<SDL_GPUDevice, sdl_deleter<SDL_DestroyGPUDevice>>;
 	using window_ptr = std::unique_ptr<SDL_Window, sdl_deleter<SDL_DestroyWindow>>;
+
+	// Special deleter for gpu.
+	// it will release window on destruction
+	struct gpu_window_deleter
+	{
+		SDL_Window *window;
+		constexpr void operator()(auto *gpu)
+		{
+			SDL_ReleaseWindowFromGPUDevice(gpu, window);
+			SDL_DestroyGPUDevice(gpu);
+		}
+	};
+	// Define GPU type with std::unique_ptr and custom deleter
+	using gpu_ptr = std::unique_ptr<SDL_GPUDevice, gpu_window_deleter>;
 
 	template <auto fn>
 	struct gpu_deleter
