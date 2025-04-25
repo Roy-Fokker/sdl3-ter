@@ -102,7 +102,8 @@ export namespace sdl
 	{
 		switch (type)
 		{
-		case sampler_type::point_clamp:
+			using enum sampler_type;
+		case point_clamp:
 			return {
 				.min_filter        = SDL_GPU_FILTER_NEAREST,
 				.mag_filter        = SDL_GPU_FILTER_NEAREST,
@@ -113,7 +114,7 @@ export namespace sdl
 				.max_anisotropy    = 0,
 				.enable_anisotropy = false,
 			};
-		case sampler_type::point_wrap:
+		case point_wrap:
 			return {
 				.min_filter        = SDL_GPU_FILTER_NEAREST,
 				.mag_filter        = SDL_GPU_FILTER_NEAREST,
@@ -124,7 +125,7 @@ export namespace sdl
 				.max_anisotropy    = 0,
 				.enable_anisotropy = false,
 			};
-		case sampler_type::linear_clamp:
+		case linear_clamp:
 			return {
 				.min_filter        = SDL_GPU_FILTER_LINEAR,
 				.mag_filter        = SDL_GPU_FILTER_LINEAR,
@@ -135,7 +136,7 @@ export namespace sdl
 				.max_anisotropy    = 0,
 				.enable_anisotropy = false,
 			};
-		case sampler_type::linear_wrap:
+		case linear_wrap:
 			return {
 				.min_filter        = SDL_GPU_FILTER_LINEAR,
 				.mag_filter        = SDL_GPU_FILTER_LINEAR,
@@ -146,7 +147,7 @@ export namespace sdl
 				.max_anisotropy    = 0,
 				.enable_anisotropy = false,
 			};
-		case sampler_type::anisotropic_clamp:
+		case anisotropic_clamp:
 			return {
 				.min_filter        = SDL_GPU_FILTER_LINEAR,
 				.mag_filter        = SDL_GPU_FILTER_LINEAR,
@@ -157,7 +158,7 @@ export namespace sdl
 				.max_anisotropy    = MAX_ANISOTROPY,
 				.enable_anisotropy = true,
 			};
-		case sampler_type::anisotropic_wrap:
+		case anisotropic_wrap:
 			return {
 				.min_filter        = SDL_GPU_FILTER_LINEAR,
 				.mag_filter        = SDL_GPU_FILTER_LINEAR,

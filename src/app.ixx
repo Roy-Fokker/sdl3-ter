@@ -12,10 +12,7 @@ import camera;
 // SDL wrapper
 import sdl;
 
-using namespace std::literals;
 using namespace sdl;
-namespace vw = std::views;
-namespace rg = std::ranges;
 
 export namespace ter
 {
@@ -117,7 +114,10 @@ export namespace ter
 	};
 }
 
+namespace vw = std::views;
+namespace rg = std::ranges;
 using namespace ter;
+using namespace std::literals;
 
 namespace
 {
