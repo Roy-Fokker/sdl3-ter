@@ -5,7 +5,7 @@ export module sdl:types;
 import std;
 import io;
 
-export namespace ter
+export namespace sdl
 {
 	constexpr auto IS_DEBUG = bool{
 #ifdef DEBUG
@@ -64,23 +64,24 @@ export namespace ter
 	using free_gpu_sampler   = gpu_deleter<SDL_ReleaseGPUSampler>;
 	using gfx_sampler_ptr    = std::unique_ptr<SDL_GPUSampler, free_gpu_sampler>;
 
-	auto to_sdl(image_format format) -> SDL_GPUTextureFormat
+	auto to_sdl(io::image_format format) -> SDL_GPUTextureFormat
 	{
 		switch (format)
 		{
-		case image_format::Bc1:
+			using enum io::image_format;
+		case Bc1:
 			return SDL_GPU_TEXTUREFORMAT_BC1_RGBA_UNORM;
-		case image_format::Bc2:
+		case Bc2:
 			return SDL_GPU_TEXTUREFORMAT_BC2_RGBA_UNORM;
-		case image_format::Bc3:
+		case Bc3:
 			return SDL_GPU_TEXTUREFORMAT_BC3_RGBA_UNORM;
-		case image_format::Bc4:
+		case Bc4:
 			return SDL_GPU_TEXTUREFORMAT_BC4_R_UNORM;
-		case image_format::Bc5:
+		case Bc5:
 			return SDL_GPU_TEXTUREFORMAT_BC5_RG_UNORM;
-		case image_format::Bc6:
+		case Bc6:
 			return SDL_GPU_TEXTUREFORMAT_BC6H_RGB_FLOAT;
-		case image_format::Bc7:
+		case Bc7:
 			return SDL_GPU_TEXTUREFORMAT_BC7_RGBA_UNORM;
 		}
 		assert(false and "Unhandled image format.");
@@ -214,7 +215,7 @@ export namespace ter
 		return { texture, { gpu } };
 	}
 
-	auto make_gpu_texture(SDL_GPUDevice *gpu, const ter::image_t::header_t img_hdr, std::string_view debug_name) -> gpu_texture_ptr
+	auto make_gpu_texture(SDL_GPUDevice *gpu, const io::image_t::header_t img_hdr, std::string_view debug_name) -> gpu_texture_ptr
 	{
 		auto texture_info = SDL_GPUTextureCreateInfo{
 			.type                 = SDL_GPU_TEXTURETYPE_2D,
@@ -240,7 +241,7 @@ export namespace ter
 		return { sampler, { gpu } };
 	}
 
-	void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUBuffer *buffer, byte_span src_data)
+	void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUBuffer *buffer, io::byte_span src_data)
 	{
 		auto src_size = static_cast<uint32_t>(src_data.size());
 
@@ -278,7 +279,7 @@ export namespace ter
 		SDL_ReleaseGPUTransferBuffer(gpu, transfer_buffer);
 	}
 
-	void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUTexture *texture, const image_t &img)
+	void upload_to_gpu(SDL_GPUDevice *gpu, SDL_GPUTexture *texture, const io::image_t &img)
 	{
 		auto src_size = static_cast<uint32_t>(img.data.size());
 

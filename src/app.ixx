@@ -13,6 +13,7 @@ import camera;
 import sdl;
 
 using namespace std::literals;
+using namespace sdl;
 namespace vw = std::views;
 namespace rg = std::ranges;
 
@@ -273,13 +274,13 @@ void application::make_gfx_pipeline()
 {
 	{ // Pipeline depending on Compute Shader modified vertex buffer
 		auto vs_shdr = shader_builder{
-			.shader_binary        = read_file("shaders/terrain.vs_6_4.cso"),
+			.shader_binary        = io::read_file("shaders/terrain.vs_6_4.cso"),
 			.stage                = shader_stage::vertex,
 			.uniform_buffer_count = 1,
 		};
 
 		auto fs_shdr = shader_builder{
-			.shader_binary = read_file("shaders/terrain.ps_6_4.cso"),
+			.shader_binary = io::read_file("shaders/terrain.ps_6_4.cso"),
 			.stage         = shader_stage::fragment,
 			.sampler_count = 1,
 		};
@@ -325,14 +326,14 @@ void application::make_gfx_pipeline()
 
 	{ // Clipmap pipeline
 		auto vs_shdr = shader_builder{
-			.shader_binary        = read_file("shaders/cm_terrain.vs_6_4.cso"),
+			.shader_binary        = io::read_file("shaders/cm_terrain.vs_6_4.cso"),
 			.stage                = shader_stage::vertex,
 			.sampler_count        = 1,
 			.uniform_buffer_count = 1,
 		};
 
 		auto fs_shdr = shader_builder{
-			.shader_binary = read_file("shaders/cm_terrain.ps_6_4.cso"),
+			.shader_binary = io::read_file("shaders/cm_terrain.ps_6_4.cso"),
 			.stage         = shader_stage::fragment,
 			.sampler_count = 1,
 		};
@@ -380,7 +381,7 @@ void application::make_gfx_pipeline()
 void application::make_comp_pipeline()
 {
 	auto pl = comp_pipeline_builder{
-		.shader_binary                   = read_file("shaders/terrain.cs_6_4.cso"),
+		.shader_binary                   = io::read_file("shaders/terrain.cs_6_4.cso"),
 		.sampler_count                   = 1,
 		.readwrite_storage_uniform_count = 1,
 		.thread_count                    = { 1024, 1, 1 },
@@ -434,17 +435,17 @@ void application::make_mesh()
 
 		auto vb_size          = static_cast<uint32_t>(scn.ter_cs_vtx_cnt * sizeof(vertex));
 		scn.ter_cs_vtx_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ | SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE | SDL_GPU_BUFFERUSAGE_VERTEX, vb_size, "Terrain Vertices");
-		upload_to_gpu(gpu.get(), scn.ter_cs_vtx_buffer.get(), as_byte_span(vertices));
+		upload_to_gpu(gpu.get(), scn.ter_cs_vtx_buffer.get(), io::as_byte_span(vertices));
 
 		auto ib_size          = static_cast<uint32_t>(scn.ter_cs_idx_cnt * sizeof(uint32_t));
 		scn.ter_cs_idx_buffer = make_gpu_buffer(gpu.get(), SDL_GPU_BUFFERUSAGE_INDEX, ib_size, "Terrain Indices");
-		upload_to_gpu(gpu.get(), scn.ter_cs_idx_buffer.get(), as_byte_span(indices));
+		upload_to_gpu(gpu.get(), scn.ter_cs_idx_buffer.get(), io::as_byte_span(indices));
 	}
 }
 
 void application::load_texture()
 {
-	auto ter_height = read_ddsktx_file("data/Mount_Fuji.dds");
+	auto ter_height = io::read_ddsktx_file("data/Mount_Fuji.dds");
 
 	scn.terrain_heightmap = make_gpu_texture(gpu.get(), ter_height.header, "Terrain Heightmap");
 	upload_to_gpu(gpu.get(), scn.terrain_heightmap.get(), ter_height);
@@ -511,7 +512,7 @@ void application::draw()
 	assert(cmd_buf != nullptr and "Failed to acquire command buffer.");
 
 	// Push Uniform buffer
-	auto uniform_data = as_byte_span(scn.proj_view);
+	auto uniform_data = io::as_byte_span(scn.proj_view);
 	SDL_PushGPUVertexUniformData(cmd_buf, 0, uniform_data.data(), static_cast<uint32_t>(uniform_data.size()));
 
 	auto sc_img = get_swapchain_texture(window, cmd_buf);

@@ -9,7 +9,7 @@ import :types;
 namespace rg = std::ranges;
 namespace vw = std::views;
 
-export namespace ter
+export namespace sdl
 {
 	auto get_gpu_supported_shader_format(SDL_GPUDevice *gpu) -> SDL_GPUShaderFormat
 	{
@@ -40,7 +40,7 @@ export namespace ter
 
 	struct shader_builder
 	{
-		byte_array shader_binary       = {};
+		io::byte_array shader_binary   = {};
 		shader_stage stage             = shader_stage::invalid;
 		uint32_t sampler_count         = 0;
 		uint32_t uniform_buffer_count  = 0;
@@ -335,7 +335,7 @@ export namespace ter
 
 	struct comp_pipeline_builder
 	{
-		byte_array shader_binary                 = {};
+		io::byte_array shader_binary             = {};
 		uint32_t sampler_count                   = 0;
 		uint32_t uniform_buffer_count            = 0;
 		uint32_t readonly_storage_uniform_count  = 0;

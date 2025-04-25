@@ -10,7 +10,7 @@ export module io;
 
 import std;
 
-export namespace ter
+export namespace io
 {
 	// Convience alias for a span of bytes
 	using byte_array = std::vector<std::byte>;
@@ -102,9 +102,9 @@ export namespace ter
 
 namespace
 {
-	auto to_format(ddsktx_format format) -> ter::image_format
+	auto to_format(ddsktx_format format) -> io::image_format
 	{
-		using sf = ter::image_format;
+		using sf = io::image_format;
 
 		switch (format)
 		{
@@ -131,7 +131,7 @@ namespace
 	}
 }
 
-auto ter::read_ddsktx_file(const std::filesystem::path &filename) -> image_t
+auto io::read_ddsktx_file(const std::filesystem::path &filename) -> image_t
 {
 	// Load the file into memory
 	auto image_file_data = read_file(filename);

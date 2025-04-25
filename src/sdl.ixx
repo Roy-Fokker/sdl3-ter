@@ -5,7 +5,7 @@ export module sdl;
 export import :types;
 export import :pipeline;
 
-export namespace ter
+export namespace sdl
 {
 	class sdl_base
 	{
