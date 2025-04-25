@@ -3,7 +3,8 @@ cmake_minimum_required(VERSION 3.31 FATAL_ERROR)
 # Std Module Config
 # Set the experimental flag
 set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD
-	"0e5b6991-d74f-4b3d-a41c-cf096e0b2508" # current value as per https://www.kitware.com/import-std-in-cmake-3-30/
+#	"0e5b6991-d74f-4b3d-a41c-cf096e0b2508" # current value as per https://www.kitware.com/import-std-in-cmake-3-30/
+	"a9e1cf81-9932-4810-974b-6eccaf14e457" # updated value for 4.0.x
 )
 
 # tell CMake we want to use 'import std'
@@ -21,7 +22,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Dependencies
 include(${CMAKE_MODULE_PATH}/CPM.cmake)
-CPMAddPackage("gh:libsdl-org/SDL#release-3.2.8")
+CPMAddPackage("gh:libsdl-org/SDL#release-3.2.10")
 CPMAddPackage("gh:g-truc/glm#release-1-0-2")
 CPMAddPackage("gh:septag/dds-ktx#v1.1")
 if (dds-ktx_ADDED)
